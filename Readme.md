@@ -1,6 +1,6 @@
 # vvvview
 
-This is just a convenience wrapper around virtual-dom boilerplate that we use for front-end rendering at [CommitChange](github.com/commitchange/)
+This is just a convenience wrapper around virtual-dom boilerplate that we use for front-end rendering at [CommitChange](https://github.com/commitchange/)
 
 ### view(rootNode, rootComponent, options)
 

@@ -6,11 +6,11 @@ This is just a convenience wrapper around virtual-dom boilerplate that we use fo
 
 Construct a new view instance. Pass in:
 
-* rootNode: the node that you want to append your virtual-dom into (eg document.body)
-* rootComponent: a function that takes some state and return a vdom.
+* rootNode: the node where you want to mount your virtual-dom (eg document.body)
+* rootComponent: a function that takes some state and returns a vdom.
 * options:
-** defaultState: this can be a default javascript object for your initial state
-** cacheState: if you want to cache the whole state to localStorage automatically, pass in a key name for this option (eg 'appView')
+ * defaultState: this can be a default javascript object for your initial state
+ * cacheState: if you want to cache the whole state to localStorage automatically, pass in a key name for this option (eg 'appView')
 
 Example:
 
@@ -19,7 +19,7 @@ var view = require('vvvview')
 var h = require('virtual-dom/h')
 
 function hello(msg) {
-	return el('p', msg)
+	return h('p', msg)
 }
 
 helloView = view(document.body, hello, {defaultState: 'hallo welt!'})

@@ -4,9 +4,9 @@ This is just a convenience wrapper around virtual-dom boilerplate that we use fo
 
 It is very very light and very quick.
 
-### view(rootNode, rootComponent, options)
+### createView(rootNode, rootComponent, options)
 
-Construct a new view instance. Pass in:
+Construct a new view instance. Require it with `require('vvvview/create')`. Pass in:
 
 * rootNode: the node where you want to mount your virtual-dom (eg document.body)
 * rootComponent: a function that takes some state and returns a vdom.
@@ -17,7 +17,7 @@ Construct a new view instance. Pass in:
 Example:
 
 ```js
-var createView = require('vvvview/create')
+var createView = require('vvvoiew/create')
 var render = require('vvvview/render')
 var h = require('virtual-dom/h')
 
@@ -37,7 +37,7 @@ render(helloView)
 
 ### render(view)
 
-This function just re-renders the dom whenever you call it, using the state within the view.
+This function just re-renders the dom whenever you call it, using the state within the view. Require it with `require('vvvview/render')`.
 
 ## patterns
 

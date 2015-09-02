@@ -9,7 +9,7 @@ module.exports = function render(view) {
   var patches = diff(view.tree, newTree)
   view.rootNode = patch(view.rootNode, patches)
   view.tree = newTree
-  if(view.cacheState) ls.save(view.cacheState, view.state)
+  if(view.sync) view.sync(view.state)
   return view
 }
 

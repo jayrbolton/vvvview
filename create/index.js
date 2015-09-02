@@ -10,16 +10,9 @@ var createElement = require('virtual-dom/create-element')
 //   state: Object
 // }
 
-module.exports = function create(parentNode, rootComponent, options) {
+module.exports = function create(parentNode, rootComponent, initialState) {
   var v = {parentNode: parentNode, rootComponent: rootComponent}
-  v.state = options.defaultState ? options.defaultState : {}
-
-  if(options.cacheState) {
-    v.cacheState = options.cacheState
-    v.state = ls.load(options.cacheState) || v.state
-    ls.save(v.cacheState, v.state)
-  }
-
+  v.state = initialState || {}
   v.tree = rootComponent(v.state)
   v.rootNode = createElement(v.tree)
   parentNode.appendChild(v.rootNode)

@@ -1,6 +1,8 @@
 # vvvview
 
-This is just a convenience wrapper around virtual-dom boilerplate that we use for front-end rendering at [CommitChange](https://github.com/commitchange/)
+This is just a convenience wrapper around virtual-dom boilerplate that we use for front-end rendering and syncing at [CommitChange](https://github.com/commitchange/)
+
+It is very very light and very quick.
 
 ### view(rootNode, rootComponent, options)
 
@@ -15,34 +17,48 @@ Construct a new view instance. Pass in:
 Example:
 
 ```js
-var view = require('vvvview')
+var createView = require('vvvview/create')
+var render = require('vvvview/render')
 var h = require('virtual-dom/h')
 
 function hello(msg) {
 	return h('p', msg)
 }
 
-helloView = view(document.body, hello, {defaultState: 'hallo welt!'})
+helloView = createview(document.body, hello)
+
+helloView.state = {msg: 'hi'}
+render(helloView)
 ```
 
 ### view.state
 
-`view.state` is how you access the state for your view. You can mutate it and then call `view.render()` afterwards to see the dom update.
+`view.state` is how you access the state for any view. You can mutate it and then call `render(view)` afterwards to see the dom update.
 
-### view.render()
+### render(view)
 
-This function just re-renders the dom whenever you call it
+This function just re-renders the dom whenever you call it, using the state within the view.
 
 ## patterns
 
 Works well with FRP
 
 ```js
-myView = view(document.body, rootComponent)
+myView = createView(document.body, rootComponent)
 function updateView(val) {
 	myView.state.x = val
-	myView.render()
+	render(myView)
 }
 Kefir.sequentially(100, [1,2,3]).onValue(updateView)
 ```
+
+### todo
+
+* event handling
+* ajax sync functionality
+* easy way to be pure-fp?
+
+#### ideas
+
+* build in FRP for state change? (ie Kefir). The state for each view could be a Property that re-renders onValue. Just take other streams (eg event streams), and combine them into the state's single property stream.
 

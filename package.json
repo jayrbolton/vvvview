@@ -1,6 +1,6 @@
 {
   "name": "vvvview",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Just a simple wrapper around virtual-dom to make it easy to re-render",
   "main": "index.js",
   "scripts": {

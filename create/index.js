@@ -1,6 +1,5 @@
 var ls = require('../lib/ls')
-
-module.exports = create
+var createElement = require('virtual-dom/create-element')
 
 // Given a parentNode (eg document.body), a rootComponent function, and an options object:
 // Construct a view object that has:
@@ -11,7 +10,7 @@ module.exports = create
 //   state: Object
 // }
 
-function view(parentNode, rootComponent, options) {
+module.exports = function create(parentNode, rootComponent, options) {
   var v = {parentNode: parentNode, rootComponent: rootComponent}
   v.state = options.defaultState ? options.defaultState : {}
 

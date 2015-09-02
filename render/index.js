@@ -1,6 +1,5 @@
 var patch = require('virtual-dom/patch')
 var diff = require('virtual-dom/diff')
-var ls = require('../lib/ls')
 
 // Given an existing view object, render it into the dom
 

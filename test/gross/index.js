@@ -6,4 +6,7 @@ console.log('hello?')
 
 function hello(state) { return h('p', state.msg) }
 
-var v = createView(document.body, hello, {defaultState: {msg: 'hello cruel world'}})
+var state = { msg: 'hello cruel world!' }
+var v = createView(document.body, hello, state)
+window.state = state
+

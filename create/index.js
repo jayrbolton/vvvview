@@ -1,4 +1,3 @@
-var ls = require('../lib/ls')
 var createElement = require('virtual-dom/create-element')
 
 // Given a parentNode (eg document.body), a rootComponent function, and an options object:

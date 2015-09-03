@@ -8,7 +8,7 @@ In this lib, a view is composed of a set of virtual-dom render functions (I call
 
 You can capture event streams out of your components very easily and combine them into the main state stream. The behavior of your view is simply any number of `flyd` streams that are combined into your view's single state stream.
 
-See the [todo example](x)
+See the [todo example](examples/todo/index.js)
 
 ### createView(rootNode, rootComponent, initialState)
 

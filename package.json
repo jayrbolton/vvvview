@@ -1,10 +1,10 @@
 {
   "name": "vvvview",
-  "version": "0.0.8",
-  "description": "Just a simple wrapper around virtual-dom to make it easy to re-render",
+  "version": "0.0.9",
+  "description": "A very light front-end view lib for combining usage of FRP with flyd and virtual-dom",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": ""
   },
   "repository": {
     "type": "git",
@@ -13,6 +13,8 @@
   "keywords": [
     "view",
     "virtual-dom",
+    "frp",
+    "vdom",
     "template"
   ],
   "author": "jay r bolton <jayrbolton@gmail.com> (http://jayrbolton.com/)",
@@ -21,6 +23,7 @@
     "url": "https://github.com/jayrbolton/vvvview/issues"
   },
   "dependencies": {
+    "flyd": "0.1.14",
     "virtual-dom": "2.1.1"
   }
 }

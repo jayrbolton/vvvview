@@ -1,6 +1,6 @@
 # vvvview
 
-This is a very light lib that lets you easily combine usage of [virtual-dom](https://github.com/Matt-Esch/virtual-dom) and functional reactive programming via [flyd](https://github.com/paldepind/flyd) to make robust, re-usable, testable front-end views.
+This is a very light lib that lets you easily combine usage of [virtual-dom](https://github.com/Matt-Esch/virtual-dom) and functional reactive programming via [flyd](https://github.com/paldepind/flyd) to make reusable/testable/functional front-end views.
 
 It abstracts away state mutation by using [FRP](https://gist.github.com/staltz/868e7e9bc2a7b8c1f754). It wraps virtual-dom re-rendering boilerplate in a state stream so you don't have to think about it. 
 

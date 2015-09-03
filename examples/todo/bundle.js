@@ -1,37 +1,709 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 
 },{}],2:[function(require,module,exports){
+var createView = require('../../')
+var h = require('../../node_modules/virtual-dom/virtual-hyperscript')
+var flyd = require('../../node_modules/flyd')
+var filter = require('../../node_modules/flyd-filter')
+
+
+//// vdom components go
+
+function app(state, stream) {
+  var finishedLen = state.items.filter(function(item) { return item.finished }).length
+  return h('div', [
+    itemForm(stream),
+    h('p', [finishedLen, ' out of ', state.items.length, ' finished']),
+    itemList(state.items, stream)
+  ])
+}
+
+function itemList(items, stream) {
+  if(items.length) {
+    return h('ul', items.map(function(item, index) { return itemRow(stream, items, index) }))
+  } else {
+    return h('p', 'Your slate is clean!')
+  }
+}
+
+function itemForm(stream) {
+  return h('form', {onsubmit: stream('addItem')}, [
+    h('input', {required: true, type: 'text', placeholder: 'What needs to be done?'}),
+    h('button', 'Add item')
+  ])
+}
+
+function itemRow(stream, items, index) {
+  var item = items[index]
+  return h('li', [
+      h('input', {type: 'checkbox', checked: item.finished, onchange: stream('toggleItem'), data: {items: items, index: index}}),
+    h('span', {className: item.finished && 'is-finished'}, item.name)
+  ])
+}
+
+
+//// view creation and event/state streams
+
+// use localStorage, why not?
+var cache = localStorage.getItem('view.state')
+var defaultState = cache ? JSON.parse(cache) : {items: [{name: 'Do the dishes!'}]}
+
+// init the view
+var view = window.view = createView(document.body, app, defaultState)
+
+// sync state to localStorage. could probably use frp for this instead
+view.sync = function(state) {
+  localStorage.setItem('view.state', JSON.stringify(state))
+}
+
+// add a new item
+var newItem = flyd.map(function(ev) {
+  ev.preventDefault()
+  var item = { name: ev.target.querySelector('input').value }
+  ev.target.reset()
+  return item
+}, view.stream('addItem'))
+
+view.combine(newItem, function(state, item) {
+  state.items.unshift(item)
+  return state
+})
+
+// toggle state of existing item
+var toggle = flyd.map(function(ev) {
+  var items = ev.target.data.items
+  var index = ev.target.data.index
+  var item = items[index]
+  item.finished = !item.finished
+  return items
+}, view.stream('toggleItem'))
+
+view.combine(toggle, function(state, items) {
+  state.items = items
+  return state
+})
+
+
+},{"../../":3,"../../node_modules/flyd":5,"../../node_modules/flyd-filter":4,"../../node_modules/virtual-dom/virtual-hyperscript":30}],3:[function(require,module,exports){
 var createElement = require('virtual-dom/create-element')
+var flyd = require('flyd')
+var patch = require('virtual-dom/patch')
+var diff = require('virtual-dom/diff')
 
 // Given a parentNode (eg document.body), a rootComponent function, and an options object:
 // Construct a view object that has:
 // {
 //   parentNode: Node,
 //   rootComponent: function,
-//   cacheState: String,
-//   state: Object
+//   initialState: Object
 // }
 
 module.exports = function create(parentNode, rootComponent, initialState) {
-  var v = {parentNode: parentNode, rootComponent: rootComponent}
-  v.state = initialState || {}
-  v.tree = rootComponent(v.state)
+  var v = { rootComponent: rootComponent, streams: {} }
+
+  // Bind some event in your vdom to a stream (see examples)
+  v.emitter = function(name) {
+    if(v.streams[name]) return v.streams[name]
+    var s = v.streams[name] = flyd.stream()
+    return s
+  }
+
+  // Retrieve a previously bound event stream (see examples)
+  v.stream = function(name) {
+    var s = v.streams[name]
+    if(s === undefined) s = flyd.stream()
+    return s
+  }
+
+  // Setup vdom rendering
+  v.tree = rootComponent(initialState, v.emitter)
   v.rootNode = createElement(v.tree)
   parentNode.appendChild(v.rootNode)
+
+  // Init the state stream
+  v.state = flyd.stream(initialState)
+  flyd.map(render(v), v.state)
+
+  // Given a stream, combine it into the view's state stream using combinator
+  v.combine = function(stream, combinator) {
+    var combined = flyd.scan(combinator, v.state(), stream)
+    v.state = combined
+    flyd.map(render(v), v.state)
+    return v.state
+  }
+
   return v
 }
 
-},{"virtual-dom/create-element":3}],3:[function(require,module,exports){
+
+function render(view) { return function(state) {
+  var newTree = view.rootComponent(state, view.emitter)
+  var patches = diff(view.tree, newTree)
+  view.rootNode = patch(view.rootNode, patches)
+  view.tree = newTree
+  if(view.sync) view.sync(state)
+  return state
+}}
+
+
+
+},{"flyd":5,"virtual-dom/create-element":12,"virtual-dom/diff":13,"virtual-dom/patch":21}],4:[function(require,module,exports){
+var flyd = require('flyd');
+
+module.exports = function(fn, s) {
+  return flyd.stream([s], function(self) {
+    if (fn(s())) self(s.val);
+  });
+};
+
+},{"flyd":5}],5:[function(require,module,exports){
+var curryN = require('ramda/src/curryN');
+
+'use strict';
+
+function isFunction(obj) {
+  return !!(obj && obj.constructor && obj.call && obj.apply);
+}
+
+// Globals
+var toUpdate = [];
+var inStream;
+
+function map(f, s) {
+  return stream([s], function(self) { self(f(s.val)); });
+}
+
+function on(f, s) {
+  stream([s], function() { f(s.val); });
+}
+
+function boundMap(f) { return map(f, this); }
+
+var scan = curryN(3, function(f, acc, s) {
+  var ns = stream([s], function() {
+    return (acc = f(acc, s()));
+  });
+  if (!ns.hasVal) ns(acc);
+  return ns;
+});
+
+var merge = curryN(2, function(s1, s2) {
+  var s = immediate(stream([s1, s2], function(n, changed) {
+    return changed[0] ? changed[0]()
+         : s1.hasVal  ? s1()
+                      : s2();
+  }));
+  endsOn(stream([s1.end, s2.end], function(self, changed) {
+    return true;
+  }), s);
+  return s;
+});
+
+function ap(s2) {
+  var s1 = this;
+  return stream([s1, s2], function() { return s1()(s2()); });
+}
+
+function initialDepsNotMet(stream) {
+  stream.depsMet = stream.deps.every(function(s) {
+    return s.hasVal;
+  });
+  return !stream.depsMet;
+}
+
+function updateStream(s) {
+  if ((s.depsMet !== true && initialDepsNotMet(s)) ||
+      (s.end !== undefined && s.end.val === true)) return;
+  if (inStream !== undefined) {
+    toUpdate.push(s);
+    return;
+  }
+  inStream = s;
+  var returnVal = s.fn(s, s.depsChanged);
+  if (returnVal !== undefined) {
+    s(returnVal);
+  }
+  inStream = undefined;
+  if (s.depsChanged !== undefined) s.depsChanged = [];
+  s.shouldUpdate = false;
+  if (flushing === false) flushUpdate();
+}
+
+var order = [];
+var orderNextIdx = -1;
+
+function findDeps(s) {
+  var i, listeners = s.listeners;
+  if (s.queued === false) {
+    s.queued = true;
+    for (i = 0; i < listeners.length; ++i) {
+      findDeps(listeners[i]);
+    }
+    order[++orderNextIdx] = s;
+  }
+}
+
+function updateDeps(s) {
+  var i, o, list, listeners = s.listeners;
+  for (i = 0; i < listeners.length; ++i) {
+    list = listeners[i];
+    if (list.end === s) {
+      endStream(list);
+    } else {
+      if (list.depsChanged !== undefined) list.depsChanged.push(s);
+      list.shouldUpdate = true;
+      findDeps(list);
+    }
+  }
+  for (; orderNextIdx >= 0; --orderNextIdx) {
+    o = order[orderNextIdx];
+    if (o.shouldUpdate === true) updateStream(o);
+    o.queued = false;
+  }
+}
+
+var flushing = false;
+
+function flushUpdate() {
+  flushing = true;
+  while (toUpdate.length > 0) {
+    var s = toUpdate.shift();
+    if (s.vals.length > 0) s.val = s.vals.shift();
+    updateDeps(s);
+  }
+  flushing = false;
+}
+
+function isStream(stream) {
+  return isFunction(stream) && 'hasVal' in stream;
+}
+
+function streamToString() {
+  return 'stream(' + this.val + ')';
+}
+
+function updateStreamValue(s, n) {
+  if (n !== undefined && n !== null && isFunction(n.then)) {
+    n.then(s);
+    return;
+  }
+  s.val = n;
+  s.hasVal = true;
+  if (inStream === undefined) {
+    flushing = true;
+    updateDeps(s);
+    if (toUpdate.length > 0) flushUpdate(); else flushing = false;
+  } else if (inStream === s) {
+    markListeners(s, s.listeners);
+  } else {
+    s.vals.push(n);
+    toUpdate.push(s);
+  }
+}
+
+function markListeners(s, lists) {
+  var i, list;
+  for (i = 0; i < lists.length; ++i) {
+    list = lists[i];
+    if (list.end !== s) {
+      if (list.depsChanged !== undefined) {
+        list.depsChanged.push(s);
+      }
+      list.shouldUpdate = true;
+    } else {
+      endStream(list);
+    }
+  }
+}
+
+function createStream() {
+  function s(n) {
+    var i, list;
+    if (arguments.length === 0) {
+      return s.val;
+    } else {
+      updateStreamValue(s, n);
+      return s;
+    }
+  }
+  s.hasVal = false;
+  s.val = undefined;
+  s.vals = [];
+  s.listeners = [];
+  s.queued = false;
+  s.end = undefined;
+
+  s.map = boundMap;
+  s.ap = ap;
+  s.of = stream;
+  s.toString = streamToString;
+
+  return s;
+}
+
+function addListeners(deps, s) {
+  for (var i = 0; i < deps.length; ++i) {
+    deps[i].listeners.push(s);
+  }
+}
+
+function createDependentStream(deps, fn) {
+  var i, s = createStream();
+  s.fn = fn;
+  s.deps = deps;
+  s.depsMet = false;
+  s.depsChanged = fn.length > 1 ? [] : undefined;
+  s.shouldUpdate = false;
+  addListeners(deps, s);
+  return s;
+}
+
+function immediate(s) {
+  if (s.depsMet === false) {
+    s.depsMet = true;
+    updateStream(s);
+  }
+  return s;
+}
+
+function removeListener(s, listeners) {
+  var idx = listeners.indexOf(s);
+  listeners[idx] = listeners[listeners.length - 1];
+  listeners.length--;
+}
+
+function detachDeps(s) {
+  for (var i = 0; i < s.deps.length; ++i) {
+    removeListener(s, s.deps[i].listeners);
+  }
+  s.deps.length = 0;
+}
+
+function endStream(s) {
+  if (s.deps !== undefined) detachDeps(s);
+  if (s.end !== undefined) detachDeps(s.end);
+}
+
+function endsOn(endS, s) {
+  detachDeps(s.end);
+  endS.listeners.push(s.end);
+  s.end.deps.push(endS);
+  return s;
+}
+
+function trueFn() { return true; }
+
+function stream(arg, fn) {
+  var i, s, deps, depEndStreams;
+  var endStream = createDependentStream([], trueFn);
+  if (arguments.length > 1) {
+    deps = []; depEndStreams = [];
+    for (i = 0; i < arg.length; ++i) {
+      if (arg[i] !== undefined) {
+        deps.push(arg[i]);
+        if (arg[i].end !== undefined) depEndStreams.push(arg[i].end);
+      }
+    }
+    s = createDependentStream(deps, fn);
+    s.end = endStream;
+    endStream.listeners.push(s);
+    addListeners(depEndStreams, endStream);
+    endStream.deps = depEndStreams;
+    updateStream(s);
+  } else {
+    s = createStream();
+    s.end = endStream;
+    endStream.listeners.push(s);
+    if (arguments.length === 1) s(arg);
+  }
+  return s;
+}
+
+var transduce = curryN(2, function(xform, source) {
+  xform = xform(new StreamTransformer());
+  return stream([source], function(self) {
+    var res = xform['@@transducer/step'](undefined, source());
+    if (res && res['@@transducer/reduced'] === true) {
+      self.end(true);
+      return res['@@transducer/value'];
+    } else {
+      return res;
+    }
+  });
+});
+
+function StreamTransformer() { }
+StreamTransformer.prototype['@@transducer/init'] = function() { };
+StreamTransformer.prototype['@@transducer/result'] = function() { };
+StreamTransformer.prototype['@@transducer/step'] = function(s, v) { return v; };
+
+module.exports = {
+  stream: stream,
+  isStream: isStream,
+  transduce: transduce,
+  merge: merge,
+  scan: scan,
+  endsOn: endsOn,
+  map: curryN(2, map),
+  on: curryN(2, on),
+  curryN: curryN,
+  immediate: immediate,
+};
+
+},{"ramda/src/curryN":8}],6:[function(require,module,exports){
+/**
+ * A special placeholder value used to specify "gaps" within curried functions,
+ * allowing partial application of any combination of arguments,
+ * regardless of their positions.
+ *
+ * If `g` is a curried ternary function and `_` is `R.__`, the following are equivalent:
+ *
+ *   - `g(1, 2, 3)`
+ *   - `g(_, 2, 3)(1)`
+ *   - `g(_, _, 3)(1)(2)`
+ *   - `g(_, _, 3)(1, 2)`
+ *   - `g(_, 2, _)(1, 3)`
+ *   - `g(_, 2)(1)(3)`
+ *   - `g(_, 2)(1, 3)`
+ *   - `g(_, 2)(_, 3)(1)`
+ *
+ * @constant
+ * @memberOf R
+ * @category Function
+ * @example
+ *
+ *      var greet = R.replace('{name}', R.__, 'Hello, {name}!');
+ *      greet('Alice'); //=> 'Hello, Alice!'
+ */
+module.exports = {ramda: 'placeholder'};
+
+},{}],7:[function(require,module,exports){
+var _curry2 = require('./internal/_curry2');
+
+
+/**
+ * Wraps a function of any arity (including nullary) in a function that accepts exactly `n`
+ * parameters. Unlike `nAry`, which passes only `n` arguments to the wrapped function,
+ * functions produced by `arity` will pass all provided arguments to the wrapped function.
+ *
+ * @func
+ * @memberOf R
+ * @sig (Number, (* -> *)) -> (* -> *)
+ * @category Function
+ * @param {Number} n The desired arity of the returned function.
+ * @param {Function} fn The function to wrap.
+ * @return {Function} A new function wrapping `fn`. The new function is
+ *         guaranteed to be of arity `n`.
+ * @example
+ *
+ *      var takesTwoArgs = function(a, b) {
+ *        return [a, b];
+ *      };
+ *      takesTwoArgs.length; //=> 2
+ *      takesTwoArgs(1, 2); //=> [1, 2]
+ *
+ *      var takesOneArg = R.arity(1, takesTwoArgs);
+ *      takesOneArg.length; //=> 1
+ *      // All arguments are passed through to the wrapped function
+ *      takesOneArg(1, 2); //=> [1, 2]
+ */
+module.exports = _curry2(function(n, fn) {
+  switch (n) {
+    case 0: return function() {return fn.apply(this, arguments);};
+    case 1: return function(a0) {void a0; return fn.apply(this, arguments);};
+    case 2: return function(a0, a1) {void a1; return fn.apply(this, arguments);};
+    case 3: return function(a0, a1, a2) {void a2; return fn.apply(this, arguments);};
+    case 4: return function(a0, a1, a2, a3) {void a3; return fn.apply(this, arguments);};
+    case 5: return function(a0, a1, a2, a3, a4) {void a4; return fn.apply(this, arguments);};
+    case 6: return function(a0, a1, a2, a3, a4, a5) {void a5; return fn.apply(this, arguments);};
+    case 7: return function(a0, a1, a2, a3, a4, a5, a6) {void a6; return fn.apply(this, arguments);};
+    case 8: return function(a0, a1, a2, a3, a4, a5, a6, a7) {void a7; return fn.apply(this, arguments);};
+    case 9: return function(a0, a1, a2, a3, a4, a5, a6, a7, a8) {void a8; return fn.apply(this, arguments);};
+    case 10: return function(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) {void a9; return fn.apply(this, arguments);};
+    default: throw new Error('First argument to arity must be a non-negative integer no greater than ten');
+  }
+});
+
+},{"./internal/_curry2":10}],8:[function(require,module,exports){
+var __ = require('./__');
+var _curry2 = require('./internal/_curry2');
+var _slice = require('./internal/_slice');
+var arity = require('./arity');
+
+
+/**
+ * Returns a curried equivalent of the provided function, with the
+ * specified arity. The curried function has two unusual capabilities.
+ * First, its arguments needn't be provided one at a time. If `g` is
+ * `R.curryN(3, f)`, the following are equivalent:
+ *
+ *   - `g(1)(2)(3)`
+ *   - `g(1)(2, 3)`
+ *   - `g(1, 2)(3)`
+ *   - `g(1, 2, 3)`
+ *
+ * Secondly, the special placeholder value `R.__` may be used to specify
+ * "gaps", allowing partial application of any combination of arguments,
+ * regardless of their positions. If `g` is as above and `_` is `R.__`,
+ * the following are equivalent:
+ *
+ *   - `g(1, 2, 3)`
+ *   - `g(_, 2, 3)(1)`
+ *   - `g(_, _, 3)(1)(2)`
+ *   - `g(_, _, 3)(1, 2)`
+ *   - `g(_, 2)(1)(3)`
+ *   - `g(_, 2)(1, 3)`
+ *   - `g(_, 2)(_, 3)(1)`
+ *
+ * @func
+ * @memberOf R
+ * @category Function
+ * @sig Number -> (* -> a) -> (* -> a)
+ * @param {Number} length The arity for the returned function.
+ * @param {Function} fn The function to curry.
+ * @return {Function} A new, curried function.
+ * @see R.curry
+ * @example
+ *
+ *      var addFourNumbers = function() {
+ *        return R.sum([].slice.call(arguments, 0, 4));
+ *      };
+ *
+ *      var curriedAddFourNumbers = R.curryN(4, addFourNumbers);
+ *      var f = curriedAddFourNumbers(1, 2);
+ *      var g = f(3);
+ *      g(4); //=> 10
+ */
+module.exports = _curry2(function curryN(length, fn) {
+  return arity(length, function() {
+    var n = arguments.length;
+    var shortfall = length - n;
+    var idx = n;
+    while (--idx >= 0) {
+      if (arguments[idx] === __) {
+        shortfall += 1;
+      }
+    }
+    if (shortfall <= 0) {
+      return fn.apply(this, arguments);
+    } else {
+      var initialArgs = _slice(arguments);
+      return curryN(shortfall, function() {
+        var currentArgs = _slice(arguments);
+        var combinedArgs = [];
+        var idx = -1;
+        while (++idx < n) {
+          var val = initialArgs[idx];
+          combinedArgs[idx] = (val === __ ? currentArgs.shift() : val);
+        }
+        return fn.apply(this, combinedArgs.concat(currentArgs));
+      });
+    }
+  });
+});
+
+},{"./__":6,"./arity":7,"./internal/_curry2":10,"./internal/_slice":11}],9:[function(require,module,exports){
+var __ = require('../__');
+
+
+/**
+ * Optimized internal two-arity curry function.
+ *
+ * @private
+ * @category Function
+ * @param {Function} fn The function to curry.
+ * @return {Function} The curried function.
+ */
+module.exports = function _curry1(fn) {
+  return function f1(a) {
+    if (arguments.length === 0) {
+      return f1;
+    } else if (a === __) {
+      return f1;
+    } else {
+      return fn(a);
+    }
+  };
+};
+
+},{"../__":6}],10:[function(require,module,exports){
+var __ = require('../__');
+var _curry1 = require('./_curry1');
+
+
+/**
+ * Optimized internal two-arity curry function.
+ *
+ * @private
+ * @category Function
+ * @param {Function} fn The function to curry.
+ * @return {Function} The curried function.
+ */
+module.exports = function _curry2(fn) {
+  return function f2(a, b) {
+    var n = arguments.length;
+    if (n === 0) {
+      return f2;
+    } else if (n === 1 && a === __) {
+      return f2;
+    } else if (n === 1) {
+      return _curry1(function(b) { return fn(a, b); });
+    } else if (n === 2 && a === __ && b === __) {
+      return f2;
+    } else if (n === 2 && a === __) {
+      return _curry1(function(a) { return fn(a, b); });
+    } else if (n === 2 && b === __) {
+      return _curry1(function(b) { return fn(a, b); });
+    } else {
+      return fn(a, b);
+    }
+  };
+};
+
+},{"../__":6,"./_curry1":9}],11:[function(require,module,exports){
+/**
+ * An optimized, private array `slice` implementation.
+ *
+ * @private
+ * @param {Arguments|Array} args The array or arguments object to consider.
+ * @param {Number} [from=0] The array index to slice from, inclusive.
+ * @param {Number} [to=args.length] The array index to slice to, exclusive.
+ * @return {Array} A new, sliced array.
+ * @example
+ *
+ *      _slice([1, 2, 3, 4, 5], 1, 3); //=> [2, 3]
+ *
+ *      var firstThreeArgs = function(a, b, c, d) {
+ *        return _slice(arguments, 0, 3);
+ *      };
+ *      firstThreeArgs(1, 2, 3, 4); //=> [1, 2, 3]
+ */
+module.exports = function _slice(args, from, to) {
+  switch (arguments.length) {
+    case 1: return _slice(args, 0, args.length);
+    case 2: return _slice(args, from, args.length);
+    default:
+      var list = [];
+      var idx = -1;
+      var len = Math.max(0, Math.min(args.length, to) - from);
+      while (++idx < len) {
+        list[idx] = args[from + idx];
+      }
+      return list;
+  }
+};
+
+},{}],12:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":14}],4:[function(require,module,exports){
+},{"./vdom/create-element.js":23}],13:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":34}],5:[function(require,module,exports){
+},{"./vtree/diff.js":43}],14:[function(require,module,exports){
 /*!
  * Cross-Browser Split 1.1.1
  * Copyright 2007-2012 Steven Levithan <stevenlevithan.com>
@@ -139,7 +811,7 @@ module.exports = (function split(undef) {
   return self;
 })();
 
-},{}],6:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 'use strict';
 
 var OneVersionConstraint = require('individual/one-version');
@@ -161,7 +833,7 @@ function EvStore(elem) {
     return hash;
 }
 
-},{"individual/one-version":8}],7:[function(require,module,exports){
+},{"individual/one-version":17}],16:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -184,7 +856,7 @@ function Individual(key, value) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],8:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 
 var Individual = require('./index.js');
@@ -208,7 +880,7 @@ function OneVersion(moduleName, version, defaultValue) {
     return Individual(key, defaultValue);
 }
 
-},{"./index.js":7}],9:[function(require,module,exports){
+},{"./index.js":16}],18:[function(require,module,exports){
 (function (global){
 var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
@@ -227,14 +899,14 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":1}],10:[function(require,module,exports){
+},{"min-document":1}],19:[function(require,module,exports){
 "use strict";
 
 module.exports = function isObject(x) {
 	return typeof x === "object" && x !== null;
 };
 
-},{}],11:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
@@ -244,12 +916,12 @@ function isArray(obj) {
     return toString.call(obj) === "[object Array]"
 }
 
-},{}],12:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":17}],13:[function(require,module,exports){
+},{"./vdom/patch.js":26}],22:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -348,7 +1020,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":25,"is-object":10}],14:[function(require,module,exports){
+},{"../vnode/is-vhook.js":34,"is-object":19}],23:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -396,7 +1068,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":23,"../vnode/is-vnode.js":26,"../vnode/is-vtext.js":27,"../vnode/is-widget.js":28,"./apply-properties":13,"global/document":9}],15:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":32,"../vnode/is-vnode.js":35,"../vnode/is-vtext.js":36,"../vnode/is-widget.js":37,"./apply-properties":22,"global/document":18}],24:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -483,7 +1155,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],16:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -636,7 +1308,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":28,"../vnode/vpatch.js":31,"./apply-properties":13,"./update-widget":18}],17:[function(require,module,exports){
+},{"../vnode/is-widget.js":37,"../vnode/vpatch.js":40,"./apply-properties":22,"./update-widget":27}],26:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -718,7 +1390,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":14,"./dom-index":15,"./patch-op":16,"global/document":9,"x-is-array":11}],18:[function(require,module,exports){
+},{"./create-element":23,"./dom-index":24,"./patch-op":25,"global/document":18,"x-is-array":20}],27:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -735,7 +1407,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":28}],19:[function(require,module,exports){
+},{"../vnode/is-widget.js":37}],28:[function(require,module,exports){
 'use strict';
 
 var EvStore = require('ev-store');
@@ -764,7 +1436,7 @@ EvHook.prototype.unhook = function(node, propertyName) {
     es[propName] = undefined;
 };
 
-},{"ev-store":6}],20:[function(require,module,exports){
+},{"ev-store":15}],29:[function(require,module,exports){
 'use strict';
 
 module.exports = SoftSetHook;
@@ -783,7 +1455,7 @@ SoftSetHook.prototype.hook = function (node, propertyName) {
     }
 };
 
-},{}],21:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 'use strict';
 
 var isArray = require('x-is-array');
@@ -922,7 +1594,7 @@ function errorString(obj) {
     }
 }
 
-},{"../vnode/is-thunk":24,"../vnode/is-vhook":25,"../vnode/is-vnode":26,"../vnode/is-vtext":27,"../vnode/is-widget":28,"../vnode/vnode.js":30,"../vnode/vtext.js":32,"./hooks/ev-hook.js":19,"./hooks/soft-set-hook.js":20,"./parse-tag.js":22,"x-is-array":11}],22:[function(require,module,exports){
+},{"../vnode/is-thunk":33,"../vnode/is-vhook":34,"../vnode/is-vnode":35,"../vnode/is-vtext":36,"../vnode/is-widget":37,"../vnode/vnode.js":39,"../vnode/vtext.js":41,"./hooks/ev-hook.js":28,"./hooks/soft-set-hook.js":29,"./parse-tag.js":31,"x-is-array":20}],31:[function(require,module,exports){
 'use strict';
 
 var split = require('browser-split');
@@ -978,7 +1650,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":5}],23:[function(require,module,exports){
+},{"browser-split":14}],32:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -1020,14 +1692,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":24,"./is-vnode":26,"./is-vtext":27,"./is-widget":28}],24:[function(require,module,exports){
+},{"./is-thunk":33,"./is-vnode":35,"./is-vtext":36,"./is-widget":37}],33:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],25:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -1036,7 +1708,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],26:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -1045,7 +1717,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":29}],27:[function(require,module,exports){
+},{"./version":38}],36:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -1054,17 +1726,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":29}],28:[function(require,module,exports){
+},{"./version":38}],37:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],29:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 module.exports = "2"
 
-},{}],30:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 var version = require("./version")
 var isVNode = require("./is-vnode")
 var isWidget = require("./is-widget")
@@ -1138,7 +1810,7 @@ function VirtualNode(tagName, properties, children, key, namespace) {
 VirtualNode.prototype.version = version
 VirtualNode.prototype.type = "VirtualNode"
 
-},{"./is-thunk":24,"./is-vhook":25,"./is-vnode":26,"./is-widget":28,"./version":29}],31:[function(require,module,exports){
+},{"./is-thunk":33,"./is-vhook":34,"./is-vnode":35,"./is-widget":37,"./version":38}],40:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -1162,7 +1834,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":29}],32:[function(require,module,exports){
+},{"./version":38}],41:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = VirtualText
@@ -1174,7 +1846,7 @@ function VirtualText(text) {
 VirtualText.prototype.version = version
 VirtualText.prototype.type = "VirtualText"
 
-},{"./version":29}],33:[function(require,module,exports){
+},{"./version":38}],42:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -1234,7 +1906,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":25,"is-object":10}],34:[function(require,module,exports){
+},{"../vnode/is-vhook":34,"is-object":19}],43:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -1663,34 +2335,4 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":23,"../vnode/is-thunk":24,"../vnode/is-vnode":26,"../vnode/is-vtext":27,"../vnode/is-widget":28,"../vnode/vpatch":31,"./diff-props":33,"x-is-array":11}],35:[function(require,module,exports){
-var patch = require('virtual-dom/patch')
-var diff = require('virtual-dom/diff')
-
-// Given an existing view object, render it into the dom
-
-module.exports = function render(view) {
-  var newTree = view.rootComponent(view.state)
-  var patches = diff(view.tree, newTree)
-  view.rootNode = patch(view.rootNode, patches)
-  view.tree = newTree
-  if(view.sync) view.sync(view.state)
-  return view
-}
-
-
-},{"virtual-dom/diff":4,"virtual-dom/patch":12}],36:[function(require,module,exports){
-var createView = require('../../create')
-var render = require('../../render')
-var h = require('../../node_modules/virtual-dom/virtual-hyperscript')
-
-console.log('hello?')
-
-function hello(state) { return h('p', state.msg) }
-
-var state = { msg: 'hello cruel world!' }
-var v = createView(document.body, hello, state)
-window.state = state
-
-
-},{"../../create":2,"../../node_modules/virtual-dom/virtual-hyperscript":21,"../../render":35}]},{},[36]);
+},{"../vnode/handle-thunk":32,"../vnode/is-thunk":33,"../vnode/is-vnode":35,"../vnode/is-vtext":36,"../vnode/is-widget":37,"../vnode/vpatch":40,"./diff-props":42,"x-is-array":20}]},{},[2]);

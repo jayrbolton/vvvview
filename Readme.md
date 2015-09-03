@@ -1,8 +1,14 @@
 # vvvview
 
-This is just a convenience wrapper around virtual-dom boilerplate that we use for front-end rendering and syncing at [CommitChange](https://github.com/commitchange/)
+This is a very light lib that lets you easily combine usage of [virtual-dom](https://github.com/Matt-Esch/virtual-dom) and functional reactive programming via [flyd](https://github.com/paldepind/flyd) to make robust, re-usable, testable front-end views.
 
-It is very very light and very quick.
+It abstracts away state mutation by using [FRP](https://gist.github.com/staltz/868e7e9bc2a7b8c1f754). It wraps virtual-dom re-rendering boilerplate in a state stream so you don't have to think about it. 
+
+In this lib, a view is composed of a set of virtual-dom render functions (I call them components) and a single state stream. Every time your state stream produces a value, your dom is updated.
+
+You can capture event streams out of your components very easily and combine them into the main state stream. The behavior of your view is simply any number of `flyd` streams that are combined into your view's single state stream.
+
+See the [todo example](x)
 
 ### createView(rootNode, rootComponent, initialState)
 
@@ -15,34 +21,46 @@ Construct a new view instance. Require it with `require('vvvview/create')`. Pass
 Example:
 
 ```js
-var createView = require('vvvoiew/create')
-var render = require('vvvview/render')
+var view = require('vvvview')
 var h = require('virtual-dom/h')
 
 function hello(msg) {
 	return h('p', msg)
 }
 
-helloView = createView(document.body, hello, {msg: 'hi'})
-render(helloView)
+var helloView = createView(document.body, hello, {msg: 'hi'})
 ```
 
-### view.state
+### view.stream(name) and view.combine(stream, combinator)
 
-`view.state` is how you can access the state for any view. You can mutate it and then call `render(view)` afterwards to see the dom update.
+Inside your functional components, you can add a `stream` parameter to give you access to a function that allows you to capture event streams for your view.
+
+Later, you can access that event stream by calling `view.stream('count')`
+
+These are best described with an example:
 
 ```js
-view.state.msg = 'Sup sup sup'
-render(view) // Dom will display the new msg
+function counter(state, stream) {
+	return h('a', {href: '#', onclick: stream('count')}, state.count || 'click me!')
+}
+
+var view = createView(document.body, counter, {count: 0})
+
+// You can access the 'count' stream by calling view.stream(name)
+function increment(n) { return n + 1 }
+var count = flyd.scan(increment, 0, view.stream('count'))
+
+// Once you have a stream you want to use for you view, you can use the view.combine function to combine it into your view's state stream
+view.combine(count, function(n, state) {
+	state.count = n
+	return state
+})
+// Now, your view will re-render on every output of the count stream 
 ```
-
-### render(view)
-
-This function just re-renders the dom whenever you call it, using the state within the view. Require it with `require('vvvview/render')`.
 
 ### view.sync
 
-if you assign 'view.sync' to a function, that function will get run every time the view renders. The function will have the view's state as an argument.
+`view.sync` is just a simple, side-effecty way to to something on every re-render given the view's state:
 
 ```js
 view.sync = function(state) {
@@ -50,26 +68,9 @@ view.sync = function(state) {
 }
 ```
 
-## patterns
-
-Works well with FRP
-
-```js
-myView = createView(document.body, rootComponent)
-function updateView(val) {
-	myView.state.x = val
-	render(myView)
-}
-Kefir.sequentially(100, [1,2,3]).onValue(updateView)
-```
 
 ### todo
 
-* better event handling / passing?
-* ajax sync functionality
-* easy way to be pure-fp?
-
-#### ideas
-
-* build in FRP for state change? (ie Kefir). The state for each view could be a Property that re-renders onValue. Just take other streams (eg event streams), and combine them into the state's single property stream.
-
+* some unit tests 
+* easily pass in data to an event stream (can use ev.target.data but that's verbose)
+* make sure this doesn't suck

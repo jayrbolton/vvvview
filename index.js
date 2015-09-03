@@ -3,7 +3,7 @@ var flyd = require('flyd')
 var patch = require('virtual-dom/patch')
 var diff = require('virtual-dom/diff')
 
-// Given a parentNode (eg document.body), a rootComponent function, and an options object:
+// Given a parentNode (eg document.body), a rootComponent function, and an initial state:
 // Construct a view object that has:
 // {
 //   parentNode: Node,

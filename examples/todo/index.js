@@ -7,7 +7,7 @@ var filter = require('../../node_modules/flyd-filter')
 //// vdom components go
 
 function app(state, stream) {
-  var finishedLen = state.items.filter(function(item) { return item.finished }).length
+  var finishedLen = state.items.filter(function(item) { return item.finished }).length // could cache this better
   return h('div', [
     itemForm(stream),
     h('p', [finishedLen, ' out of ', state.items.length, ' finished']),

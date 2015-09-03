@@ -1,7 +1,6 @@
 var createView = require('../../')
 var h = require('../../node_modules/virtual-dom/virtual-hyperscript')
 var flyd = require('../../node_modules/flyd')
-var filter = require('../../node_modules/flyd-filter')
 
 
 //// vdom components go

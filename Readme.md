@@ -57,9 +57,9 @@ When you have a stream that you want to use to update the DOM, you can use the `
 
 ```js
 // Continuing the counter example above, we now have a 'totalCount' stream that sums your total clicks
-view.combine(counter, totalCount, function(state, n) {
+view.combine(counter, totalCount, function(state, total) {
 	// inside the combinator function, we can change the state and return the new state based on the count.
-	state.count = n
+	state.count = total
 	return state
 })
 ```

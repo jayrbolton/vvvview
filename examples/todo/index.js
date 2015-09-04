@@ -1,6 +1,7 @@
-var createView = require('../../')
-var h = require('../../node_modules/virtual-dom/virtual-hyperscript')
-var flyd = require('../../node_modules/flyd')
+var view = require('../../')
+var h = view.h
+var flyd = view.flyd
+var filter = require('../../../flyd/module/flatmap')
 
 
 //// vdom components go
@@ -16,7 +17,7 @@ function app(state, stream) {
 
 function itemList(items, stream) {
   if(items.length) {
-    return h('ul', items.map(function(item, index) { return itemRow(stream, items, index) }))
+    return h('ul', items.map(function(item, index) { return itemRow(items, index, stream) }))
   } else {
     return h('p', 'Your slate is clean!')
   }
@@ -29,7 +30,7 @@ function itemForm(stream) {
   ])
 }
 
-function itemRow(stream, items, index) {
+function itemRow(items, index, stream) {
   var item = items[index]
   return h('li', [
       h('input', {type: 'checkbox', checked: item.finished, onchange: stream('toggleItem'), data: {items: items, index: index}}),
@@ -41,15 +42,15 @@ function itemRow(stream, items, index) {
 //// view creation and event/state streams
 
 // use localStorage, why not?
-var cache = localStorage.getItem('view.state')
-var defaultState = cache ? JSON.parse(cache) : {items: [{name: 'Do the dishes!'}]}
+var cache = localStorage.getItem('todos')
+var initialState = cache ? JSON.parse(cache) : {items: [{name: 'Do the dishes!'}]}
 
 // init the view
-var view = window.view = createView(document.body, app, defaultState)
+var todos = view.create(document.body, app, initialState)
 
 // sync state to localStorage. could probably use frp for this instead
-view.sync = function(state) {
-  localStorage.setItem('view.state', JSON.stringify(state))
+todos.sync = function(state) {
+  localStorage.setItem('todos', JSON.stringify(state))
 }
 
 // add a new item
@@ -58,9 +59,9 @@ var newItem = flyd.map(function(ev) {
   var item = { name: ev.target.querySelector('input').value }
   ev.target.reset()
   return item
-}, view.stream('addItem'))
+}, view.evStream(todos, 'addItem'))
 
-view.combine(newItem, function(state, item) {
+view.combine(todos, newItem, function(state, item) {
   state.items.unshift(item)
   return state
 })
@@ -72,9 +73,9 @@ var toggle = flyd.map(function(ev) {
   var item = items[index]
   item.finished = !item.finished
   return items
-}, view.stream('toggleItem'))
+}, view.evStream(todos, 'toggleItem'))
 
-view.combine(toggle, function(state, items) {
+view.combine(todos, toggle, function(state, items) {
   state.items = items
   return state
 })

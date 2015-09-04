@@ -1,162 +1,15 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 
 },{}],2:[function(require,module,exports){
-var createView = require('../../')
-var h = require('../../node_modules/virtual-dom/virtual-hyperscript')
-var flyd = require('../../node_modules/flyd')
-var filter = require('../../node_modules/flyd-filter')
-
-
-//// vdom components go
-
-function app(state, stream) {
-  var finishedLen = state.items.filter(function(item) { return item.finished }).length
-  return h('div', [
-    itemForm(stream),
-    h('p', [finishedLen, ' out of ', state.items.length, ' finished']),
-    itemList(state.items, stream)
-  ])
-}
-
-function itemList(items, stream) {
-  if(items.length) {
-    return h('ul', items.map(function(item, index) { return itemRow(stream, items, index) }))
-  } else {
-    return h('p', 'Your slate is clean!')
-  }
-}
-
-function itemForm(stream) {
-  return h('form', {onsubmit: stream('addItem')}, [
-    h('input', {required: true, type: 'text', placeholder: 'What needs to be done?'}),
-    h('button', 'Add item')
-  ])
-}
-
-function itemRow(stream, items, index) {
-  var item = items[index]
-  return h('li', [
-      h('input', {type: 'checkbox', checked: item.finished, onchange: stream('toggleItem'), data: {items: items, index: index}}),
-    h('span', {className: item.finished && 'is-finished'}, item.name)
-  ])
-}
-
-
-//// view creation and event/state streams
-
-// use localStorage, why not?
-var cache = localStorage.getItem('view.state')
-var defaultState = cache ? JSON.parse(cache) : {items: [{name: 'Do the dishes!'}]}
-
-// init the view
-var view = window.view = createView(document.body, app, defaultState)
-
-// sync state to localStorage. could probably use frp for this instead
-view.sync = function(state) {
-  localStorage.setItem('view.state', JSON.stringify(state))
-}
-
-// add a new item
-var newItem = flyd.map(function(ev) {
-  ev.preventDefault()
-  var item = { name: ev.target.querySelector('input').value }
-  ev.target.reset()
-  return item
-}, view.stream('addItem'))
-
-view.combine(newItem, function(state, item) {
-  state.items.unshift(item)
-  return state
-})
-
-// toggle state of existing item
-var toggle = flyd.map(function(ev) {
-  var items = ev.target.data.items
-  var index = ev.target.data.index
-  var item = items[index]
-  item.finished = !item.finished
-  return items
-}, view.stream('toggleItem'))
-
-view.combine(toggle, function(state, items) {
-  state.items = items
-  return state
-})
-
-
-},{"../../":3,"../../node_modules/flyd":5,"../../node_modules/flyd-filter":4,"../../node_modules/virtual-dom/virtual-hyperscript":30}],3:[function(require,module,exports){
-var createElement = require('virtual-dom/create-element')
-var flyd = require('flyd')
-var patch = require('virtual-dom/patch')
-var diff = require('virtual-dom/diff')
-
-// Given a parentNode (eg document.body), a rootComponent function, and an options object:
-// Construct a view object that has:
-// {
-//   parentNode: Node,
-//   rootComponent: function,
-//   initialState: Object
-// }
-
-module.exports = function create(parentNode, rootComponent, initialState) {
-  var v = { rootComponent: rootComponent, streams: {} }
-
-  // Bind some event in your vdom to a stream (see examples)
-  v.emitter = function(name) {
-    if(v.streams[name]) return v.streams[name]
-    var s = v.streams[name] = flyd.stream()
-    return s
-  }
-
-  // Retrieve a previously bound event stream (see examples)
-  v.stream = function(name) {
-    var s = v.streams[name]
-    if(s === undefined) s = flyd.stream()
-    return s
-  }
-
-  // Setup vdom rendering
-  v.tree = rootComponent(initialState, v.emitter)
-  v.rootNode = createElement(v.tree)
-  parentNode.appendChild(v.rootNode)
-
-  // Init the state stream
-  v.state = flyd.stream(initialState)
-  flyd.map(render(v), v.state)
-
-  // Given a stream, combine it into the view's state stream using combinator
-  v.combine = function(stream, combinator) {
-    var combined = flyd.scan(combinator, v.state(), stream)
-    v.state = combined
-    flyd.map(render(v), v.state)
-    return v.state
-  }
-
-  return v
-}
-
-
-function render(view) { return function(state) {
-  var newTree = view.rootComponent(state, view.emitter)
-  var patches = diff(view.tree, newTree)
-  view.rootNode = patch(view.rootNode, patches)
-  view.tree = newTree
-  if(view.sync) view.sync(state)
-  return state
-}}
-
-
-
-},{"flyd":5,"virtual-dom/create-element":12,"virtual-dom/diff":13,"virtual-dom/patch":21}],4:[function(require,module,exports){
 var flyd = require('flyd');
 
-module.exports = function(fn, s) {
-  return flyd.stream([s], function(self) {
-    if (fn(s())) self(s.val);
+module.exports = function(f, s) {
+  return flyd.stream([s], function(own) {
+    flyd.map(own, f(s()));
   });
 };
 
-},{"flyd":5}],5:[function(require,module,exports){
+},{"flyd":3}],3:[function(require,module,exports){
 var curryN = require('ramda/src/curryN');
 
 'use strict';
@@ -450,7 +303,7 @@ module.exports = {
   immediate: immediate,
 };
 
-},{"ramda/src/curryN":8}],6:[function(require,module,exports){
+},{"ramda/src/curryN":6}],4:[function(require,module,exports){
 /**
  * A special placeholder value used to specify "gaps" within curried functions,
  * allowing partial application of any combination of arguments,
@@ -477,7 +330,7 @@ module.exports = {
  */
 module.exports = {ramda: 'placeholder'};
 
-},{}],7:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 
 
@@ -524,7 +377,7 @@ module.exports = _curry2(function(n, fn) {
   }
 });
 
-},{"./internal/_curry2":10}],8:[function(require,module,exports){
+},{"./internal/_curry2":8}],6:[function(require,module,exports){
 var __ = require('./__');
 var _curry2 = require('./internal/_curry2');
 var _slice = require('./internal/_slice');
@@ -602,7 +455,7 @@ module.exports = _curry2(function curryN(length, fn) {
   });
 });
 
-},{"./__":6,"./arity":7,"./internal/_curry2":10,"./internal/_slice":11}],9:[function(require,module,exports){
+},{"./__":4,"./arity":5,"./internal/_curry2":8,"./internal/_slice":9}],7:[function(require,module,exports){
 var __ = require('../__');
 
 
@@ -626,7 +479,7 @@ module.exports = function _curry1(fn) {
   };
 };
 
-},{"../__":6}],10:[function(require,module,exports){
+},{"../__":4}],8:[function(require,module,exports){
 var __ = require('../__');
 var _curry1 = require('./_curry1');
 
@@ -660,7 +513,7 @@ module.exports = function _curry2(fn) {
   };
 };
 
-},{"../__":6,"./_curry1":9}],11:[function(require,module,exports){
+},{"../__":4,"./_curry1":7}],9:[function(require,module,exports){
 /**
  * An optimized, private array `slice` implementation.
  *
@@ -693,17 +546,185 @@ module.exports = function _slice(args, from, to) {
   }
 };
 
-},{}],12:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
+var view = require('../../')
+var h = view.h
+var flyd = view.flyd
+var filter = require('../../../flyd/module/flatmap')
+
+
+//// vdom components go
+
+function app(state, stream) {
+  var finishedLen = state.items.filter(function(item) { return item.finished }).length // could cache this better
+  return h('div', [
+    itemForm(stream),
+    h('p', [finishedLen, ' out of ', state.items.length, ' finished']),
+    itemList(state.items, stream)
+  ])
+}
+
+function itemList(items, stream) {
+  if(items.length) {
+    return h('ul', items.map(function(item, index) { return itemRow(items, index, stream) }))
+  } else {
+    return h('p', 'Your slate is clean!')
+  }
+}
+
+function itemForm(stream) {
+  return h('form', {onsubmit: stream('addItem')}, [
+    h('input', {required: true, type: 'text', placeholder: 'What needs to be done?'}),
+    h('button', 'Add item')
+  ])
+}
+
+function itemRow(items, index, stream) {
+  var item = items[index]
+  return h('li', [
+      h('input', {type: 'checkbox', checked: item.finished, onchange: stream('toggleItem'), data: {items: items, index: index}}),
+    h('span', {className: item.finished && 'is-finished'}, item.name)
+  ])
+}
+
+
+//// view creation and event/state streams
+
+// use localStorage, why not?
+var cache = localStorage.getItem('todos')
+var initialState = cache ? JSON.parse(cache) : {items: [{name: 'Do the dishes!'}]}
+
+// init the view
+var todos = view.create(document.body, app, initialState)
+
+// sync state to localStorage. could probably use frp for this instead
+todos.sync = function(state) {
+  localStorage.setItem('todos', JSON.stringify(state))
+}
+
+// add a new item
+var newItem = flyd.map(function(ev) {
+  ev.preventDefault()
+  var item = { name: ev.target.querySelector('input').value }
+  ev.target.reset()
+  return item
+}, view.evStream(todos, 'addItem'))
+
+view.combine(todos, newItem, function(state, item) {
+  state.items.unshift(item)
+  return state
+})
+
+// toggle state of existing item
+var toggle = flyd.map(function(ev) {
+  var items = ev.target.data.items
+  var index = ev.target.data.index
+  var item = items[index]
+  item.finished = !item.finished
+  return items
+}, view.evStream(todos, 'toggleItem'))
+
+view.combine(todos, toggle, function(state, items) {
+  state.items = items
+  return state
+})
+
+
+},{"../../":11,"../../../flyd/module/flatmap":2}],11:[function(require,module,exports){
+var createElement = require('virtual-dom/create-element')
+var h = require('virtual-dom/h')
+var flyd = require('flyd')
+var patch = require('virtual-dom/patch')
+var diff = require('virtual-dom/diff')
+
+var api = {}
+module.exports = api
+
+api.h = h
+api.flyd = flyd
+
+
+// Create an object literal that contains all the data for view re-rendering and a state stream
+api.create = function(parentNode, rootComponent, initialState) {
+  var view = { rootComponent: rootComponent, streams: {}, state: initialState }
+
+  // Setup vdom rendering
+  view.tree = rootComponent(initialState, api.evStream(view))
+  view.rootNode = createElement(view.tree)
+  parentNode.appendChild(view.rootNode)
+
+  // Init the state stream
+  // view.state = flyd.map(render(view), flyd.stream(initialState))
+
+  return view
+}
+
+
+// Given any stream, combine it into the view's state stream using a combinator.
+// This allows you to compose any number of arbitrary streams into the view's
+// main state stream so that the dom gets rerendered automatically.
+api.combine = function(view, stream, combinator) {
+ return flyd.stream([stream], function() {
+  view.state = combinator(view.state, stream())
+  render(view)(view.state)
+  return view.state
+ })
+}
+
+// return a stream that can be used inside a VNode for things like
+// 'onclick' and 'onsubmit'. Given a view and an arbitrary name, either return
+// an already-initialized event stream or create a new one and cache it into
+// the view.
+api.evStream = function(view, name) {
+  if(arguments.length < 2) { return function(name) { return api.evStream(view, name) }} // partial application
+  if(view.streams[name] === undefined) {
+   view.streams[name] = flyd.stream()
+  }
+  return view.streams[name]
+}
+
+
+// Render a virtual dom tree given a view and a state, returns the state
+function render(view) { return function(state) {
+  if(view.sync) view.sync(state)
+  var newTree = view.rootComponent(state, api.evStream(view))
+  var patches = diff(view.tree, newTree)
+  view.rootNode = patch(view.rootNode, patches)
+  view.tree = newTree
+  return state
+}}
+
+
+},{"flyd":12,"virtual-dom/create-element":19,"virtual-dom/diff":20,"virtual-dom/h":21,"virtual-dom/patch":29}],12:[function(require,module,exports){
+arguments[4][3][0].apply(exports,arguments)
+},{"dup":3,"ramda/src/curryN":15}],13:[function(require,module,exports){
+arguments[4][4][0].apply(exports,arguments)
+},{"dup":4}],14:[function(require,module,exports){
+arguments[4][5][0].apply(exports,arguments)
+},{"./internal/_curry2":17,"dup":5}],15:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"./__":13,"./arity":14,"./internal/_curry2":17,"./internal/_slice":18,"dup":6}],16:[function(require,module,exports){
+arguments[4][7][0].apply(exports,arguments)
+},{"../__":13,"dup":7}],17:[function(require,module,exports){
+arguments[4][8][0].apply(exports,arguments)
+},{"../__":13,"./_curry1":16,"dup":8}],18:[function(require,module,exports){
+arguments[4][9][0].apply(exports,arguments)
+},{"dup":9}],19:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":23}],13:[function(require,module,exports){
+},{"./vdom/create-element.js":31}],20:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":43}],14:[function(require,module,exports){
+},{"./vtree/diff.js":51}],21:[function(require,module,exports){
+var h = require("./virtual-hyperscript/index.js")
+
+module.exports = h
+
+},{"./virtual-hyperscript/index.js":38}],22:[function(require,module,exports){
 /*!
  * Cross-Browser Split 1.1.1
  * Copyright 2007-2012 Steven Levithan <stevenlevithan.com>
@@ -811,7 +832,7 @@ module.exports = (function split(undef) {
   return self;
 })();
 
-},{}],15:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict';
 
 var OneVersionConstraint = require('individual/one-version');
@@ -833,7 +854,7 @@ function EvStore(elem) {
     return hash;
 }
 
-},{"individual/one-version":17}],16:[function(require,module,exports){
+},{"individual/one-version":25}],24:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -856,7 +877,7 @@ function Individual(key, value) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],17:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 'use strict';
 
 var Individual = require('./index.js');
@@ -880,7 +901,7 @@ function OneVersion(moduleName, version, defaultValue) {
     return Individual(key, defaultValue);
 }
 
-},{"./index.js":16}],18:[function(require,module,exports){
+},{"./index.js":24}],26:[function(require,module,exports){
 (function (global){
 var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
@@ -899,14 +920,14 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":1}],19:[function(require,module,exports){
+},{"min-document":1}],27:[function(require,module,exports){
 "use strict";
 
 module.exports = function isObject(x) {
 	return typeof x === "object" && x !== null;
 };
 
-},{}],20:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
@@ -916,12 +937,12 @@ function isArray(obj) {
     return toString.call(obj) === "[object Array]"
 }
 
-},{}],21:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":26}],22:[function(require,module,exports){
+},{"./vdom/patch.js":34}],30:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -1020,7 +1041,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":34,"is-object":19}],23:[function(require,module,exports){
+},{"../vnode/is-vhook.js":42,"is-object":27}],31:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -1068,7 +1089,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":32,"../vnode/is-vnode.js":35,"../vnode/is-vtext.js":36,"../vnode/is-widget.js":37,"./apply-properties":22,"global/document":18}],24:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":40,"../vnode/is-vnode.js":43,"../vnode/is-vtext.js":44,"../vnode/is-widget.js":45,"./apply-properties":30,"global/document":26}],32:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -1155,7 +1176,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],25:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -1308,7 +1329,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":37,"../vnode/vpatch.js":40,"./apply-properties":22,"./update-widget":27}],26:[function(require,module,exports){
+},{"../vnode/is-widget.js":45,"../vnode/vpatch.js":48,"./apply-properties":30,"./update-widget":35}],34:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -1390,7 +1411,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":23,"./dom-index":24,"./patch-op":25,"global/document":18,"x-is-array":20}],27:[function(require,module,exports){
+},{"./create-element":31,"./dom-index":32,"./patch-op":33,"global/document":26,"x-is-array":28}],35:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -1407,7 +1428,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":37}],28:[function(require,module,exports){
+},{"../vnode/is-widget.js":45}],36:[function(require,module,exports){
 'use strict';
 
 var EvStore = require('ev-store');
@@ -1436,7 +1457,7 @@ EvHook.prototype.unhook = function(node, propertyName) {
     es[propName] = undefined;
 };
 
-},{"ev-store":15}],29:[function(require,module,exports){
+},{"ev-store":23}],37:[function(require,module,exports){
 'use strict';
 
 module.exports = SoftSetHook;
@@ -1455,7 +1476,7 @@ SoftSetHook.prototype.hook = function (node, propertyName) {
     }
 };
 
-},{}],30:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
 var isArray = require('x-is-array');
@@ -1594,7 +1615,7 @@ function errorString(obj) {
     }
 }
 
-},{"../vnode/is-thunk":33,"../vnode/is-vhook":34,"../vnode/is-vnode":35,"../vnode/is-vtext":36,"../vnode/is-widget":37,"../vnode/vnode.js":39,"../vnode/vtext.js":41,"./hooks/ev-hook.js":28,"./hooks/soft-set-hook.js":29,"./parse-tag.js":31,"x-is-array":20}],31:[function(require,module,exports){
+},{"../vnode/is-thunk":41,"../vnode/is-vhook":42,"../vnode/is-vnode":43,"../vnode/is-vtext":44,"../vnode/is-widget":45,"../vnode/vnode.js":47,"../vnode/vtext.js":49,"./hooks/ev-hook.js":36,"./hooks/soft-set-hook.js":37,"./parse-tag.js":39,"x-is-array":28}],39:[function(require,module,exports){
 'use strict';
 
 var split = require('browser-split');
@@ -1650,7 +1671,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":14}],32:[function(require,module,exports){
+},{"browser-split":22}],40:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -1692,14 +1713,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":33,"./is-vnode":35,"./is-vtext":36,"./is-widget":37}],33:[function(require,module,exports){
+},{"./is-thunk":41,"./is-vnode":43,"./is-vtext":44,"./is-widget":45}],41:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],34:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -1708,7 +1729,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],35:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -1717,7 +1738,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":38}],36:[function(require,module,exports){
+},{"./version":46}],44:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -1726,17 +1747,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":38}],37:[function(require,module,exports){
+},{"./version":46}],45:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],38:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 module.exports = "2"
 
-},{}],39:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 var version = require("./version")
 var isVNode = require("./is-vnode")
 var isWidget = require("./is-widget")
@@ -1810,7 +1831,7 @@ function VirtualNode(tagName, properties, children, key, namespace) {
 VirtualNode.prototype.version = version
 VirtualNode.prototype.type = "VirtualNode"
 
-},{"./is-thunk":33,"./is-vhook":34,"./is-vnode":35,"./is-widget":37,"./version":38}],40:[function(require,module,exports){
+},{"./is-thunk":41,"./is-vhook":42,"./is-vnode":43,"./is-widget":45,"./version":46}],48:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -1834,7 +1855,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":38}],41:[function(require,module,exports){
+},{"./version":46}],49:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = VirtualText
@@ -1846,7 +1867,7 @@ function VirtualText(text) {
 VirtualText.prototype.version = version
 VirtualText.prototype.type = "VirtualText"
 
-},{"./version":38}],42:[function(require,module,exports){
+},{"./version":46}],50:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -1906,7 +1927,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":34,"is-object":19}],43:[function(require,module,exports){
+},{"../vnode/is-vhook":42,"is-object":27}],51:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -2335,4 +2356,4 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":32,"../vnode/is-thunk":33,"../vnode/is-vnode":35,"../vnode/is-vtext":36,"../vnode/is-widget":37,"../vnode/vpatch":40,"./diff-props":42,"x-is-array":20}]},{},[2]);
+},{"../vnode/handle-thunk":40,"../vnode/is-thunk":41,"../vnode/is-vnode":43,"../vnode/is-vtext":44,"../vnode/is-widget":45,"../vnode/vpatch":48,"./diff-props":50,"x-is-array":28}]},{},[10]);

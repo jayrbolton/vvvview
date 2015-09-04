@@ -46,7 +46,7 @@ function hCounter(state, stream) {
 var counter = view.create(document.body, hCounter, {count: 0})
 
 // Retrieve the 'count' event stream and reduce it into a total count value
-var totalCount = flyd.scan(function(n) {return n + 1}, 0, view.evStream(counter, 'count'))
+var totalCount = flyd.scan(n => n + 1, 0, view.evStream(counter, 'count'))
 ```
 
 ### view.combine(viewInstance, stream, combinatorFunction)

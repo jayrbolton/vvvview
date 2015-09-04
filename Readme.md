@@ -1,18 +1,21 @@
 # vvvview
 
-This is a very light lib that lets you easily combine usage of [virtual-dom](https://github.com/Matt-Esch/virtual-dom) and functional reactive programming via [flyd](https://github.com/paldepind/flyd) to make reusable/testable/functional front-end views.
+A very light module that allows you to easily combine usage of virtual dom trees (using [virtual-dom](https://github.com/Matt-Esch/virtual-dom)) with functional reactive programming (using [flyd](https://github.com/paldepind/flyd))
 
-It abstracts away state mutation by using [FRP](https://gist.github.com/staltz/868e7e9bc2a7b8c1f754). It wraps virtual-dom re-rendering boilerplate in a state stream so you don't have to think about it. 
+Goals:
+- easily compose many streams of asynchronous data into a single state that gets automatically re-rendered.
+- modular virtual dom components that depend only on the arguments passed into them, able to be mixed and used in any context with different behavior.
+- clean event handling
 
-In this lib, a view is composed of a set of virtual-dom render functions (I call them components) and a single state stream. Every time your state stream produces a value, your dom is updated.
+We abstract away any state mutation by using the `combine` function, which takes a stream and a view and combines that stream into the view's state. All updates to the view's state, and thus to the dom, are purely functional and easily testable. You can think of a view as a bunch of asynchronous streams that all get combined into a single state stream that renders into the DOM on every update.
 
-You can capture event streams out of your components very easily and combine them into the main state stream. The behavior of your view is simply any number of `flyd` streams that are combined into your view's single state stream.
+Usually you will need only one view for your app. If you have multiple areas of your app that never need to share any data, then separate those into different views. That is, the division between views is defined by non-interdependency of any data.
 
 See the [todo example](examples/todo/index.js)
 
-### createView(rootNode, rootComponent, initialState)
+### view.create(rootNode, rootComponent, initialState)
 
-Construct a new view instance. Require it with `require('vvvview/create')`. Pass in:
+Construct a new view instance. Pass in:
 
 * rootNode: the node where you want to mount your virtual-dom (eg document.body)
 * rootComponent: a function that takes some state and returns a vdom.
@@ -24,38 +27,39 @@ Example:
 var view = require('vvvview')
 var h = require('virtual-dom/h')
 
-function hello(msg) {
+function hHello(msg) {
 	return h('p', msg)
 }
 
-var helloView = createView(document.body, hello, {msg: 'hi'})
+var hello = view.create(document.body, hHello, {msg: 'hi'})
 ```
 
-### view.stream(name) and view.combine(stream, combinator)
+### view.evStream(viewInstance, name)
 
-Inside your functional components, you can add a `stream` parameter to give you access to a function that allows you to capture event streams for your view.
-
-Later, you can access that event stream by calling `view.stream('count')`
-
-These are best described with an example:
+Retrieve an existing event stream from within your view. Event streams can be referenced from within your virtual dom tree as the values for events like `onclick`, `onsubmit`, etc.
 
 ```js
-function counter(state, stream) {
-	return h('a', {href: '#', onclick: stream('count')}, state.count || 'click me!')
+function hCounter(state, stream) {
+	return h('a', {onclick: stream('count')}, state.count || 'click me!')
 }
 
-var view = createView(document.body, counter, {count: 0})
+var counter = view.create(document.body, hCounter, {count: 0})
 
-// You can access the 'count' stream by calling view.stream(name)
-function increment(n) { return n + 1 }
-var count = flyd.scan(increment, 0, view.stream('count'))
+// Retrieve the 'count' event stream and reduce it into a total count value
+var totalCount = flyd.scan(function(n) {return n + 1}, 0, view.evStream(counter, 'count'))
+```
 
-// Once you have a stream you want to use for you view, you can use the view.combine function to combine it into your view's state stream
-view.combine(count, function(n, state) {
+### view.combine(viewInstance, stream, combinatorFunction)
+
+When you have a stream that you want to use to update the DOM, you can use the `combine` function to combine it into the view's state stream:
+
+```js
+// Continuing the counter example above, we now have a 'totalCount' stream that sums your total clicks
+view.combine(counter, totalCount, function(state, n) {
+	// inside the combinator function, we can change the state and return the new state based on the count.
 	state.count = n
 	return state
 })
-// Now, your view will re-render on every output of the count stream 
 ```
 
 ### view.sync
@@ -68,9 +72,10 @@ view.sync = function(state) {
 }
 ```
 
+For convience sake, you can access both `virtual-dom/h` using `vvvview.h` and `flyd` using `vvvview.flyd`.
 
 ### todo
 
 * some unit tests 
-* easily pass in data to an event stream (can use ev.target.data but that's verbose)
-* make sure this doesn't suck
+* immutable view state w/ history
+

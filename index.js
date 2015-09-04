@@ -1,61 +1,63 @@
 var createElement = require('virtual-dom/create-element')
+var h = require('virtual-dom/h')
 var flyd = require('flyd')
 var patch = require('virtual-dom/patch')
 var diff = require('virtual-dom/diff')
 
-// Given a parentNode (eg document.body), a rootComponent function, and an initial state:
-// Construct a view object that has:
-// {
-//   parentNode: Node,
-//   rootComponent: function,
-//   initialState: Object
-// }
+var api = {}
+module.exports = api
 
-module.exports = function create(parentNode, rootComponent, initialState) {
-  var v = { rootComponent: rootComponent, streams: {} }
+api.h = h
+api.flyd = flyd
 
-  // Bind some event in your vdom to a stream (see examples)
-  v.emitter = function(name) {
-    if(v.streams[name]) return v.streams[name]
-    var s = v.streams[name] = flyd.stream()
-    return s
-  }
 
-  // Retrieve a previously bound event stream (see examples)
-  v.stream = function(name) {
-    var s = v.streams[name]
-    if(s === undefined) s = flyd.stream()
-    return s
-  }
+// Create an object literal that contains all the data for view re-rendering and a state stream
+api.create = function(parentNode, rootComponent, initialState) {
+  var view = { rootComponent: rootComponent, streams: {}, state: initialState }
 
   // Setup vdom rendering
-  v.tree = rootComponent(initialState, v.emitter)
-  v.rootNode = createElement(v.tree)
-  parentNode.appendChild(v.rootNode)
+  view.tree = rootComponent(initialState, api.evStream(view))
+  view.rootNode = createElement(view.tree)
+  parentNode.appendChild(view.rootNode)
 
   // Init the state stream
-  v.state = flyd.stream(initialState)
-  flyd.map(render(v), v.state)
+  // view.state = flyd.map(render(view), flyd.stream(initialState))
 
-  // Given a stream, combine it into the view's state stream using combinator
-  v.combine = function(stream, combinator) {
-    var combined = flyd.scan(combinator, v.state(), stream)
-    v.state = combined
-    flyd.map(render(v), v.state)
-    return v.state
-  }
-
-  return v
+  return view
 }
 
 
+// Given any stream, combine it into the view's state stream using a combinator.
+// This allows you to compose any number of arbitrary streams into the view's
+// main state stream so that the dom gets rerendered automatically.
+api.combine = function(view, stream, combinator) {
+ return flyd.stream([stream], function() {
+  view.state = combinator(view.state, stream())
+  render(view)(view.state)
+  return view.state
+ })
+}
+
+// return a stream that can be used inside a VNode for things like
+// 'onclick' and 'onsubmit'. Given a view and an arbitrary name, either return
+// an already-initialized event stream or create a new one and cache it into
+// the view.
+api.evStream = function(view, name) {
+  if(arguments.length < 2) { return function(name) { return api.evStream(view, name) }} // partial application
+  if(view.streams[name] === undefined) {
+   view.streams[name] = flyd.stream()
+  }
+  return view.streams[name]
+}
+
+
+// Render a virtual dom tree given a view and a state, returns the state
 function render(view) { return function(state) {
-  var newTree = view.rootComponent(state, view.emitter)
+  if(view.sync) view.sync(state)
+  var newTree = view.rootComponent(state, api.evStream(view))
   var patches = diff(view.tree, newTree)
   view.rootNode = patch(view.rootNode, patches)
   view.tree = newTree
-  if(view.sync) view.sync(state)
   return state
 }}
-
 

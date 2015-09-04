@@ -66,7 +66,7 @@ view.combine(counter, totalCount, function(state, total) {
 
 ### view.sync
 
-`view.sync` is just a simple, side-effecty way to to something on every re-render given the view's state:
+`view.sync` is just a simple, side-effecty way to do something on every re-render given the view's state:
 
 ```js
 view.sync = function(state) {

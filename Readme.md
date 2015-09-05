@@ -9,8 +9,6 @@ Goals:
 
 We abstract away any state mutation by using the `combine` function, which takes a stream and a view and combines that stream into the view's state. All updates to the view's state, and thus to the dom, are purely functional and easily testable. You can think of a view as a bunch of asynchronous streams that all get combined into a single state stream that renders into the DOM on every update.
 
-Usually you will need only one view for your app. If you have multiple areas of your app that never need to share any data, then separate those into different views. That is, the division between views is defined by non-interdependency of any data.
-
 See the [todo example](examples/todo/index.js)
 
 ### view.create(rootNode, rootComponent, initialState)

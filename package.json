@@ -22,8 +22,15 @@
   "bugs": {
     "url": "https://github.com/jayrbolton/vvvview/issues"
   },
+  "devDependencies": {
+     "browserify": "11.0.1",
+     "babelify": "6.3.0"
+  },
   "dependencies": {
+    "fj-curry": "1.0.0",
     "flyd": "0.1.14",
-    "virtual-dom": "2.1.1"
+    "deep-equal": "1.0.1",
+    "virtual-dom": "2.1.1",
+    "clone": "1.0.2"
   }
 }

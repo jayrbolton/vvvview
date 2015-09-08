@@ -18,7 +18,7 @@ See the [todo example](examples/todo/index.js)
 Install with `npm` and import any modules you need:
 
 ```js
-import {partial, combineState, createView, h, flyd} from '../../index.es6.js'
+import {partial, combineState, createView, h, flyd} from 'vvvview'
 ```
 
 ### createView(rootNode, rootComponent, initialState)

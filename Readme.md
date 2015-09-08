@@ -34,19 +34,19 @@ Example:
 ```js
 const clicks = flyd.stream()
 const hCount = state => h('a', {onclick: clicks}, state.count || 'click me!')
-let vCount = view.create(document.body, hHello, {msg: 'hi'})
+let vCount = view.create(document.body, hCount, {count: 0})
 ```
 
 ### combineState(combinatorFunction, viewInstance, [arrayOfStreams])
 
-When you have a stream that you want to use to update the DOM, you can use the `combine` function to combine it into the view's state stream:
+When you have a stream that you want to use to update the DOM, you can use the `combineState` function to combine stream values into the view's state and re-render:
 
 ```js
 // Continuing the counter example above, we now have a 'clicks' stream we can use to count your clicks
 let counts = flyd.scan(total => total+1, 0, clicks)
 
 combineState((state, n) => {
-	// inside the combinator function, we can change the state and return the new state based on the count.
+	// inside, we can change the state and return the new state based on the count.
 	state.count = n
 	return state
 }, vCount, [counts])

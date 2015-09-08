@@ -1,21 +1,29 @@
 # vvvview
 
-A very light module that allows you to easily combine usage of virtual dom trees (using [virtual-dom](https://github.com/Matt-Esch/virtual-dom)) with functional reactive programming (using [flyd](https://github.com/paldepind/flyd))
+A minimalist module that allows you to easily combine usage of virtual dom (using [virtual-dom](https://github.com/Matt-Esch/virtual-dom)) with functional reactive programming (using [flyd](https://github.com/paldepind/flyd)).
 
 Goals:
-- easily compose many streams of asynchronous data into a single state that gets automatically re-rendered.
-- modular virtual dom components that depend only on the arguments passed into them, able to be mixed and used in any context with different behavior.
-- clean event handling
+- view state is effectively immutable.
+- easily compose many streams into a single state that gets automatically re-rendered on all changes.
+- easily thunk (ie partial) out branches of your VTree for efficient re-rendering.
+- light dependencies.
+- modify the state with plain js.
 
 We abstract away any state mutation by using the `combine` function, which takes a stream and a view and combines that stream into the view's state. All updates to the view's state, and thus to the dom, are purely functional and easily testable. You can think of a view as a bunch of asynchronous streams that all get combined into a single state stream that renders into the DOM on every update.
 
-Usually you will need only one view for your app. If you have multiple areas of your app that never need to share any data, then separate those into different views. That is, the division between views is defined by non-interdependency of any data.
-
 See the [todo example](examples/todo/index.js)
 
-### view.create(rootNode, rootComponent, initialState)
+### installing and requiring
 
-Construct a new view instance. Pass in:
+Install with `npm` and import any modules you need:
+
+```js
+import {partial, combineState, createView, h, flyd} from '../../index.es6.js'
+```
+
+### createView(rootNode, rootComponent, initialState)
+
+Construct a new view object. Pass in:
 
 * rootNode: the node where you want to mount your virtual-dom (eg document.body)
 * rootComponent: a function that takes some state and returns a vdom.
@@ -24,47 +32,48 @@ Construct a new view instance. Pass in:
 Example:
 
 ```js
-var view = require('vvvview')
-var h = require('virtual-dom/h')
-
-function hHello(msg) {
-	return h('p', msg)
-}
-
-var hello = view.create(document.body, hHello, {msg: 'hi'})
+const clicks = flyd.stream()
+const hCount = state => h('a', {onclick: clicks}, state.count || 'click me!')
+let vCount = view.create(document.body, hHello, {msg: 'hi'})
 ```
 
-### view.evStream(viewInstance, name)
-
-Retrieve an existing event stream from within your view. Event streams can be referenced from within your virtual dom tree as the values for events like `onclick`, `onsubmit`, etc.
-
-```js
-function hCounter(state, stream) {
-	return h('a', {onclick: stream('count')}, state.count || 'click me!')
-}
-
-var counter = view.create(document.body, hCounter, {count: 0})
-
-// Retrieve the 'count' event stream and reduce it into a total count value
-var totalCount = flyd.scan(function(n) {return n + 1}, 0, view.evStream(counter, 'count'))
-```
-
-### view.combine(viewInstance, stream, combinatorFunction)
+### combineState(combinatorFunction, viewInstance, [arrayOfStreams])
 
 When you have a stream that you want to use to update the DOM, you can use the `combine` function to combine it into the view's state stream:
 
 ```js
-// Continuing the counter example above, we now have a 'totalCount' stream that sums your total clicks
-view.combine(counter, totalCount, function(state, n) {
+// Continuing the counter example above, we now have a 'clicks' stream we can use to count your clicks
+let counts = flyd.scan(total => total+1, 0, clicks)
+
+combineState((state, n) => {
 	// inside the combinator function, we can change the state and return the new state based on the count.
 	state.count = n
 	return state
-})
+}, vCount, [counts])
+```
+
+### partial(fn, ...args)
+
+In your component functions, use the partial function to prevent rerendering child components when data has not changed:
+
+```js
+const root = state => h('p', partial(childComponent, state.val))
+const childComponent = val => h('span', 'val: ' + val)
+
+view = createView(document.body, root, {val: 11}) // Initially, both root and childComponent get rendered
+let s = flyd.stream()
+combineState(state => {
+	state.xyz = 123
+	return state // state.val is not affected
+}, view, [s])
+
+// On any value in the 's' stream, the view will get re-rendered, but childComponent will not get run again since state.val has not changed.
+s(333)
 ```
 
 ### view.sync
 
-`view.sync` is just a simple, side-effecty way to to something on every re-render given the view's state:
+`view.sync` is just a simple, side-effecty way to do something on every re-render given the view's state:
 
 ```js
 view.sync = function(state) {
@@ -72,10 +81,8 @@ view.sync = function(state) {
 }
 ```
 
-For convience sake, you can access both `virtual-dom/h` using `vvvview.h` and `flyd` using `vvvview.flyd`.
-
 ### todo
 
 * some unit tests 
-* immutable view state w/ history
+* think about immutable libs. Are there any non-giant immutable libs?
 

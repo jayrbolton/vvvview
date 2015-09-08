@@ -1,6 +1,6 @@
 {
   "name": "vvvview",
-  "version": "0.0.10",
+  "version": "0.1.0",
   "description": "A very light front-end view lib for combining usage of FRP with flyd and virtual-dom",
   "main": "index.js",
   "scripts": {

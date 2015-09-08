@@ -64,4 +64,3 @@ var render = (0, _fjCurry.curryN)(2, function (view, state) {
   view.tree = newTree;
   return state;
 });
-

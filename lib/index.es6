@@ -3,10 +3,9 @@ import h from 'virtual-dom/h'
 import patch from 'virtual-dom/patch'
 import diff from 'virtual-dom/diff'
 import flyd from 'flyd'
-import createPartial from './thunk'
 import {curryN} from 'fj-curry'
 
-var api = { h: h, flyd: flyd, partial: createPartial }
+var api = { h: h, flyd: flyd}
 
 module.exports = api
 
@@ -23,7 +22,6 @@ api.createView = curryN(3, (parentNode, rootComponent, initialState) => {
 // This allows you to compose any number of arbitrary streams into the view's
 // main state stream so that the dom gets rerendered automatically.
 api.combineState = curryN(3, (combinator, view, stream) => {
-  if(stream.length) stream = stream.scan((acc, s) => flyd.merge(acc, s))
   return flyd.stream([stream], (n, changes) => {
     view.state = combinator.apply(null, [view.state, stream()])
     render(view, view.state)

@@ -1,6 +1,6 @@
 'use strict'
-import {flyd, combineState, createView} from '../../'
-import {vtree, toggleItem, submitForm, sUndos} from './vtree.js'
+import {flyd, combineState, createView} from '../../../lib/index.es6'
+import {vtree, toggleItem, submitForm, sUndos} from './vtree.es6'
 
 // See ./vtree.js for the virtual-dom components
 
@@ -12,6 +12,7 @@ let initialState = cache ? JSON.parse(cache) : {items: [{name: 'Do the dishes!'}
 
 // init the view
 let todos = createView(document.body, vtree, initialState)
+window.todos = todos
 
 // sync state to localStorage. could probably use frp for this instead
 todos.sync = function(state) {

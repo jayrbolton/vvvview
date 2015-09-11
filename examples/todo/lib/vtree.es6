@@ -1,4 +1,4 @@
-import {mori, partial, h, flyd} from '../../'
+import {mori, h, flyd} from '../../../lib/index.es6'
 window.flyd = flyd
 
 let toggleItem = flyd.stream()
@@ -8,15 +8,15 @@ let submitForm = flyd.stream()
 const root = state => {
   let finishedLen = state.items.filter(item => item.finished).length // could cache this better
   return h('div', [
-    partial(itemForm),
+    itemForm(),
     h('p', [finishedLen, ' out of ', state.items.length, ' finished']),
-    partial(itemList, state.items)
+    itemList(state.items)
   ])
 }
 
 const itemList = items =>
 	items.length ?
-		  h('ul', items.map((item, index) => partial(itemRow, items, index)))
+		  h('ul', items.map((item, index) => itemRow(items, index)))
 		: h('p', 'Your slate is clean!')
 
 const itemForm = () =>

@@ -22,13 +22,9 @@ var _flyd = require('flyd');
 
 var _flyd2 = _interopRequireDefault(_flyd);
 
-var _thunk = require('./thunk');
-
-var _thunk2 = _interopRequireDefault(_thunk);
-
 var _fjCurry = require('fj-curry');
 
-var api = { h: _virtualDomH2['default'], flyd: _flyd2['default'], partial: _thunk2['default'] };
+var api = { h: _virtualDomH2['default'], flyd: _flyd2['default'] };
 
 module.exports = api;
 
@@ -45,9 +41,6 @@ api.createView = (0, _fjCurry.curryN)(3, function (parentNode, rootComponent, in
 // This allows you to compose any number of arbitrary streams into the view's
 // main state stream so that the dom gets rerendered automatically.
 api.combineState = (0, _fjCurry.curryN)(3, function (combinator, view, stream) {
-  if (stream.length) stream = stream.reduce(function (acc, s) {
-    return _flyd2['default'].merge(acc, s);
-  });
   return _flyd2['default'].stream([stream], function (n, changes) {
     view.state = combinator.apply(null, [view.state, stream()]);
     render(view, view.state);

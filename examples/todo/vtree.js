@@ -1,4 +1,4 @@
-import {mori, partial, h, flyd} from '../../index.es6.js'
+import {mori, partial, h, flyd} from '../../'
 window.flyd = flyd
 
 let toggleItem = flyd.stream()
@@ -15,9 +15,9 @@ const root = state => {
 }
 
 const itemList = items =>
-  items.length ?
-  h('ul', items.map((item, index) => partial(itemRow, items, index))) :
-  h('p', 'Your slate is clean!')
+	items.length ?
+		  h('ul', items.map((item, index) => partial(itemRow, items, index)))
+		: h('p', 'Your slate is clean!')
 
 const itemForm = () =>
   h('form', {onsubmit: submitForm}, [

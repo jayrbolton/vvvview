@@ -1,5 +1,5 @@
 'use strict'
-import {flyd, combineState, createView} from '../../index.es6.js'
+import {flyd, combineState, createView} from '../../'
 import {vtree, toggleItem, submitForm, sUndos} from './vtree.js'
 
 // See ./vtree.js for the virtual-dom components
@@ -20,7 +20,7 @@ todos.sync = function(state) {
 
 
 // add a new item
-let newItem = flyd.map((ev) => {
+let newItem = flyd.map(ev => {
   ev.preventDefault()
   let item = { name: ev.target.querySelector('input').value }
   ev.target.reset()
@@ -31,11 +31,11 @@ let newItem = flyd.map((ev) => {
 combineState((state, item) => {
   state.items.push(item)
   return state
-}, todos, [newItem])
+}, todos, newItem)
 
 
 // toggle state of existing item
-let toggle = flyd.map((params) => {
+let toggle = flyd.map(params => {
  let [ev, items, index] = params
  items[index].finished = !items[index].finished
  return items
@@ -45,5 +45,5 @@ let toggle = flyd.map((params) => {
 combineState((state, items) => {
   state.items = items
   return state
-}, todos, [toggle])
+}, todos, toggle)
 

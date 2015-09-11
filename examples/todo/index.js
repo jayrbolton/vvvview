@@ -1564,7 +1564,7 @@ module.exports = isArray || function (val) {
 
 var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i['return']) _i['return'](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError('Invalid attempt to destructure non-iterable instance'); } }; })();
 
-var _indexEs6Js = require('../../index.es6.js');
+var _ = require('../../');
 
 var _vtreeJs = require('./vtree.js');
 
@@ -1577,7 +1577,7 @@ var cache = localStorage.getItem('todos');
 var initialState = cache ? JSON.parse(cache) : { items: [{ name: 'Do the dishes!' }] };
 
 // init the view
-var todos = (0, _indexEs6Js.createView)(document.body, _vtreeJs.vtree, initialState);
+var todos = (0, _.createView)(document.body, _vtreeJs.vtree, initialState);
 
 // sync state to localStorage. could probably use frp for this instead
 todos.sync = function (state) {
@@ -1585,20 +1585,20 @@ todos.sync = function (state) {
 };
 
 // add a new item
-var newItem = _indexEs6Js.flyd.map(function (ev) {
+var newItem = _.flyd.map(function (ev) {
   ev.preventDefault();
   var item = { name: ev.target.querySelector('input').value };
   ev.target.reset();
   return item;
 }, _vtreeJs.submitForm);
 
-(0, _indexEs6Js.combineState)(function (state, item) {
+(0, _.combineState)(function (state, item) {
   state.items.push(item);
   return state;
-}, todos, [newItem]);
+}, todos, newItem);
 
 // toggle state of existing item
-var toggle = _indexEs6Js.flyd.map(function (params) {
+var toggle = _.flyd.map(function (params) {
   var _params = _slicedToArray(params, 3);
 
   var ev = _params[0];
@@ -1609,46 +1609,46 @@ var toggle = _indexEs6Js.flyd.map(function (params) {
   return items;
 }, _vtreeJs.toggleItem);
 
-(0, _indexEs6Js.combineState)(function (state, items) {
+(0, _.combineState)(function (state, items) {
   state.items = items;
   return state;
-}, todos, [toggle]);
+}, todos, toggle);
 
-},{"../../index.es6.js":"/home/big/j/code/vvvview/index.es6.js","./vtree.js":"/home/big/j/code/vvvview/examples/todo/vtree.js"}],"/home/big/j/code/vvvview/examples/todo/vtree.js":[function(require,module,exports){
+},{"../../":"/home/big/j/code/vvvview/src/index.js","./vtree.js":"/home/big/j/code/vvvview/examples/todo/vtree.js"}],"/home/big/j/code/vvvview/examples/todo/vtree.js":[function(require,module,exports){
 'use strict';
 
-var _indexEs6Js = require('../../index.es6.js');
+var _ = require('../../');
 
-window.flyd = _indexEs6Js.flyd;
+window.flyd = _.flyd;
 
-var toggleItem = _indexEs6Js.flyd.stream();
+var toggleItem = _.flyd.stream();
 var toggleItemScoped = function toggleItemScoped(items, index) {
   return function (ev) {
     return toggleItem([ev, items, index]);
   };
 };
-var submitForm = _indexEs6Js.flyd.stream();
+var submitForm = _.flyd.stream();
 
 var root = function root(state) {
   var finishedLen = state.items.filter(function (item) {
     return item.finished;
   }).length; // could cache this better
-  return (0, _indexEs6Js.h)('div', [(0, _indexEs6Js.partial)(itemForm), (0, _indexEs6Js.h)('p', [finishedLen, ' out of ', state.items.length, ' finished']), (0, _indexEs6Js.partial)(itemList, state.items)]);
+  return (0, _.h)('div', [(0, _.partial)(itemForm), (0, _.h)('p', [finishedLen, ' out of ', state.items.length, ' finished']), (0, _.partial)(itemList, state.items)]);
 };
 
 var itemList = function itemList(items) {
-  return items.length ? (0, _indexEs6Js.h)('ul', items.map(function (item, index) {
-    return (0, _indexEs6Js.partial)(itemRow, items, index);
-  })) : (0, _indexEs6Js.h)('p', 'Your slate is clean!');
+  return items.length ? (0, _.h)('ul', items.map(function (item, index) {
+    return (0, _.partial)(itemRow, items, index);
+  })) : (0, _.h)('p', 'Your slate is clean!');
 };
 
 var itemForm = function itemForm() {
-  return (0, _indexEs6Js.h)('form', { onsubmit: submitForm }, [(0, _indexEs6Js.h)('input', { required: true, type: 'text', placeholder: 'What needs to be done?' }), (0, _indexEs6Js.h)('button', { type: 'submit' }, 'Add item')]);
+  return (0, _.h)('form', { onsubmit: submitForm }, [(0, _.h)('input', { required: true, type: 'text', placeholder: 'What needs to be done?' }), (0, _.h)('button', { type: 'submit' }, 'Add item')]);
 };
 
 var itemRow = function itemRow(items, index) {
   var item = items[index];
-  return (0, _indexEs6Js.h)('li', [(0, _indexEs6Js.h)('input', { type: 'checkbox', checked: item.finished, onchange: toggleItemScoped(items, index) }), (0, _indexEs6Js.h)('span', { className: item.finished && 'is-finished' }, item.name)]);
+  return (0, _.h)('li', [(0, _.h)('input', { type: 'checkbox', checked: item.finished, onchange: toggleItemScoped(items, index) }), (0, _.h)('span', { className: item.finished && 'is-finished' }, item.name)]);
 };
 
 module.exports = {
@@ -1657,75 +1657,7 @@ module.exports = {
   toggleItem: toggleItem
 };
 
-},{"../../index.es6.js":"/home/big/j/code/vvvview/index.es6.js"}],"/home/big/j/code/vvvview/index.es6.js":[function(require,module,exports){
-'use strict';
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
-
-var _virtualDomCreateElement = require('virtual-dom/create-element');
-
-var _virtualDomCreateElement2 = _interopRequireDefault(_virtualDomCreateElement);
-
-var _virtualDomH = require('virtual-dom/h');
-
-var _virtualDomH2 = _interopRequireDefault(_virtualDomH);
-
-var _virtualDomPatch = require('virtual-dom/patch');
-
-var _virtualDomPatch2 = _interopRequireDefault(_virtualDomPatch);
-
-var _virtualDomDiff = require('virtual-dom/diff');
-
-var _virtualDomDiff2 = _interopRequireDefault(_virtualDomDiff);
-
-var _flyd = require('flyd');
-
-var _flyd2 = _interopRequireDefault(_flyd);
-
-var _thunk = require('./thunk');
-
-var _thunk2 = _interopRequireDefault(_thunk);
-
-var _fjCurry = require('fj-curry');
-
-var api = { h: _virtualDomH2['default'], flyd: _flyd2['default'], partial: _thunk2['default'] };
-
-module.exports = api;
-
-// Create an object literal that contains all the data for view re-rendering and a state stream
-api.createView = (0, _fjCurry.curryN)(3, function (parentNode, rootComponent, initialState) {
-  var view = { rootComponent: rootComponent, streams: {}, state: initialState };
-  view.tree = rootComponent(view.state);
-  view.rootNode = (0, _virtualDomCreateElement2['default'])(view.tree);
-  parentNode.appendChild(view.rootNode);
-  return view;
-});
-
-// Given some streams, combine it into a view's state stream using a combinator.
-// This allows you to compose any number of arbitrary streams into the view's
-// main state stream so that the dom gets rerendered automatically.
-api.combineState = (0, _fjCurry.curryN)(3, function (combinator, view, stream) {
-  if (stream.length) stream = stream.reduce(function (acc, s) {
-    return _flyd2['default'].merge(acc, s);
-  });
-  return _flyd2['default'].stream([stream], function (n, changes) {
-    view.state = combinator.apply(null, [view.state, stream()]);
-    render(view, view.state);
-    return view.state;
-  });
-});
-
-// Render a virtual dom tree given a view and a state, returns the state
-var render = (0, _fjCurry.curryN)(2, function (view, state) {
-  if (view.sync) view.sync(state);
-  var newTree = view.rootComponent(state);
-  var patches = (0, _virtualDomDiff2['default'])(view.tree, newTree);
-  view.rootNode = (0, _virtualDomPatch2['default'])(view.rootNode, patches);
-  view.tree = newTree;
-  return state;
-});
-
-},{"./thunk":"/home/big/j/code/vvvview/thunk.js","fj-curry":"/home/big/j/code/vvvview/node_modules/fj-curry/index.js","flyd":"/home/big/j/code/vvvview/node_modules/flyd/lib/index.js","virtual-dom/create-element":"/home/big/j/code/vvvview/node_modules/virtual-dom/create-element.js","virtual-dom/diff":"/home/big/j/code/vvvview/node_modules/virtual-dom/diff.js","virtual-dom/h":"/home/big/j/code/vvvview/node_modules/virtual-dom/h.js","virtual-dom/patch":"/home/big/j/code/vvvview/node_modules/virtual-dom/patch.js"}],"/home/big/j/code/vvvview/node_modules/clone/clone.js":[function(require,module,exports){
+},{"../../":"/home/big/j/code/vvvview/src/index.js"}],"/home/big/j/code/vvvview/node_modules/clone/clone.js":[function(require,module,exports){
 (function (Buffer){
 var clone = (function() {
 'use strict';
@@ -4235,10 +4167,82 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/handle-thunk.js","../vnode/is-thunk":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/is-thunk.js","../vnode/is-vnode":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/is-vnode.js","../vnode/is-vtext":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/is-vtext.js","../vnode/is-widget":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/is-widget.js","../vnode/vpatch":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/vpatch.js","./diff-props":"/home/big/j/code/vvvview/node_modules/virtual-dom/vtree/diff-props.js","x-is-array":"/home/big/j/code/vvvview/node_modules/virtual-dom/node_modules/x-is-array/index.js"}],"/home/big/j/code/vvvview/thunk.js":[function(require,module,exports){
+},{"../vnode/handle-thunk":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/handle-thunk.js","../vnode/is-thunk":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/is-thunk.js","../vnode/is-vnode":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/is-vnode.js","../vnode/is-vtext":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/is-vtext.js","../vnode/is-widget":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/is-widget.js","../vnode/vpatch":"/home/big/j/code/vvvview/node_modules/virtual-dom/vnode/vpatch.js","./diff-props":"/home/big/j/code/vvvview/node_modules/virtual-dom/vtree/diff-props.js","x-is-array":"/home/big/j/code/vvvview/node_modules/virtual-dom/node_modules/x-is-array/index.js"}],"/home/big/j/code/vvvview/src/index.js":[function(require,module,exports){
 'use strict';
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+function _interopRequireDefault(obj) {
+  return obj && obj.__esModule ? obj : { 'default': obj };
+}
+
+var _virtualDomCreateElement = require('virtual-dom/create-element');
+
+var _virtualDomCreateElement2 = _interopRequireDefault(_virtualDomCreateElement);
+
+var _virtualDomH = require('virtual-dom/h');
+
+var _virtualDomH2 = _interopRequireDefault(_virtualDomH);
+
+var _virtualDomPatch = require('virtual-dom/patch');
+
+var _virtualDomPatch2 = _interopRequireDefault(_virtualDomPatch);
+
+var _virtualDomDiff = require('virtual-dom/diff');
+
+var _virtualDomDiff2 = _interopRequireDefault(_virtualDomDiff);
+
+var _flyd = require('flyd');
+
+var _flyd2 = _interopRequireDefault(_flyd);
+
+var _thunk = require('./thunk');
+
+var _thunk2 = _interopRequireDefault(_thunk);
+
+var _fjCurry = require('fj-curry');
+
+var api = { h: _virtualDomH2['default'], flyd: _flyd2['default'], partial: _thunk2['default'] };
+
+module.exports = api;
+
+// Create an object literal that contains all the data for view re-rendering and a state stream
+api.createView = (0, _fjCurry.curryN)(3, function (parentNode, rootComponent, initialState) {
+  var view = { rootComponent: rootComponent, streams: {}, state: initialState };
+  view.tree = rootComponent(view.state);
+  view.rootNode = (0, _virtualDomCreateElement2['default'])(view.tree);
+  parentNode.appendChild(view.rootNode);
+  return view;
+});
+
+// Given some streams, combine it into a view's state stream using a combinator.
+// This allows you to compose any number of arbitrary streams into the view's
+// main state stream so that the dom gets rerendered automatically.
+api.combineState = (0, _fjCurry.curryN)(3, function (combinator, view, stream) {
+  if (stream.length) stream = stream.reduce(function (acc, s) {
+    return _flyd2['default'].merge(acc, s);
+  });
+  return _flyd2['default'].stream([stream], function (n, changes) {
+    view.state = combinator.apply(null, [view.state, stream()]);
+    render(view, view.state);
+    return view.state;
+  });
+});
+
+// Render a virtual dom tree given a view and a state, returns the state
+var render = (0, _fjCurry.curryN)(2, function (view, state) {
+  if (view.sync) view.sync(state);
+  var newTree = view.rootComponent(state);
+  var patches = (0, _virtualDomDiff2['default'])(view.tree, newTree);
+  view.rootNode = (0, _virtualDomPatch2['default'])(view.rootNode, patches);
+  view.tree = newTree;
+  return state;
+});
+
+},{"./thunk":"/home/big/j/code/vvvview/src/thunk.js","fj-curry":"/home/big/j/code/vvvview/node_modules/fj-curry/index.js","flyd":"/home/big/j/code/vvvview/node_modules/flyd/lib/index.js","virtual-dom/create-element":"/home/big/j/code/vvvview/node_modules/virtual-dom/create-element.js","virtual-dom/diff":"/home/big/j/code/vvvview/node_modules/virtual-dom/diff.js","virtual-dom/h":"/home/big/j/code/vvvview/node_modules/virtual-dom/h.js","virtual-dom/patch":"/home/big/j/code/vvvview/node_modules/virtual-dom/patch.js"}],"/home/big/j/code/vvvview/src/thunk.js":[function(require,module,exports){
+'use strict';
+
+function _interopRequireDefault(obj) {
+  return obj && obj.__esModule ? obj : { 'default': obj };
+}
 
 var _deepEqual = require('deep-equal');
 

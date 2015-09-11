@@ -23,7 +23,7 @@ api.createView = curryN(3, (parentNode, rootComponent, initialState) => {
 // This allows you to compose any number of arbitrary streams into the view's
 // main state stream so that the dom gets rerendered automatically.
 api.combineState = curryN(3, (combinator, view, stream) => {
-  if(stream.length) stream = stream.reduce((acc, s) => flyd.merge(acc, s))
+  if(stream.length) stream = stream.scan((acc, s) => flyd.merge(acc, s))
   return flyd.stream([stream], (n, changes) => {
     view.state = combinator.apply(null, [view.state, stream()])
     render(view, view.state)

@@ -1,68 +1,68 @@
 # vvvview
 
-A minimalist module that allows you to easily combine usage of virtual dom (using [virtual-dom](https://github.com/Matt-Esch/virtual-dom)) with functional reactive programming (using [flyd](https://github.com/paldepind/flyd)).
+A micro-module for streamlining usage of [virtual-dom](https://github.com/Matt-Esch/virtual-dom). Some suggested module pairings design patterns are below.
 
-Goals:
-- view state is effectively immutable.
-- easily compose many streams into a single state that gets automatically re-rendered on all changes.
-- light dependencies.
-- modify the state with plain js.
+### install & require
 
-We abstract away any state mutation by using the `combineState` function, which takes a stream and a view and combines that stream into the view's state. All updates to the view's state, and thus to the dom, are purely functional and easily testable. You can think of a view as a bunch of asynchronous streams that all get combined into a single state stream that renders into the DOM on every update.
-
-See the [todo example](examples/todo/index.js)
-
-### installing and requiring
-
-Install with `npm` and import any modules you need:
+Add `vvvview` to your package.json and use ES6 (eg Babel) and/or browserify.
 
 ```js
-import {combineState, createView, h, flyd} from 'vvvview'
+import view from 'vvvview'
 ```
 
-### createView(rootNode, rootComponent, initialState)
+### view(rootFunction, parentNode, initialState)
 
-Construct a new view object. Pass in:
+create a new view by passing in:
 
-* rootNode: the node where you want to mount your virtual-dom (eg document.body)
-* rootComponent: a function that takes some state and returns a vdom.
-* initialState: an object that represents your view's initial state
+* rootFunction: a function that takes some value (usually an object that represents UI state) and returns a virtual-dom tree.
+* parentNode: the node where you want to append your virtual-dom tree (eg document.body)
+* initialState: an object or other value that represents your view's initial state upon pageload.
 
-Example:
+`view` can be partially applied (eg `view(fn)`, `view(fn, node)`)
+
+`view` returns a new function that can be used to update your view. Its one and only value is the view's new state. The new function can be passed any new data, `rootFunction` will get re-evaluated using the new state, and the DOM will get updated.
 
 ```js
-const clicks = flyd.stream()
-const hCount = state => h('a', {onclick: clicks}, state.count || 'click me!')
-let vCount = view.create(document.body, hCount, {count: 0})
+import h from 'virtual-dom/h'
+import view from 'vvvview'
+import {Map} from 'immutable'
+
+const root = state => h('p', state.msg)
+
+// the VTree returned from `root` gets run using the default object and appended to document.body.
+let state = Map({msg: 'hallo welt'})
+let helloView = view(root, document.body, state)
+
+// Call your view function with a new state value and the DOM will get re-rendered automatically
+helloView(state.set('msg', 'bonjour le monde'))
 ```
 
-### combineState(combinatorFunction, viewInstance, [arrayOfStreams])
+That's all there is to it! 
 
-When you have a stream that you want to use to update the DOM, you can use the `combineState` function to combine stream values into the view's state and re-render:
+## pairings & patterns
+
+### functional reactive programming
+
+A counter example using [flyd](https://github.com/paldepind/flyd)
 
 ```js
-// Continuing the counter example above, we now have a 'clicks' stream we can use to count your clicks
-let counts = flyd.scan(total => total+1, 0, clicks)
+import h from 'virtual-dom/h'
+import view from 'vvvview'
+import {Map} from 'immutable'
 
-combineState((state, n) => {
-	// inside, we can change the state and return the new state based on the count.
-	state.count = n
-	return state
-}, vCount, [counts])
+let clickStream = flyd.stream()
+let count = flyd.scan(n => n + 1, 0, clickStream)
+
+const root = state => h('a', {onclick: clickStream}, state.count || 'click me!')
+
+let state = Map({count: 0})
+let counter = view(root, root, state)
+
+// Scan the count stream with the state to create a stream of states
+let stateStream = flyd.scan((state, count) => state.set('count', count), state, count)
+// Call the view function on every value in the stateStream
+flyd.map(counter, stateStream)
 ```
 
-### view.sync
-
-`view.sync` is just a simple, side-effecty way to do something on every re-render given the view's state:
-
-```js
-view.sync = function(state) {
-	localStorage.setItem('view.state', JSON.stringify(view.state))
-}
-```
-
-### todo
-
-* some unit tests 
-* think about immutable libs. Are there any non-giant immutable libs?
+With immutable, you can also use vdom-thunk without configuration
 

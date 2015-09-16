@@ -8,31 +8,17 @@
     "build": "babel lib --out-dir src",
     "prepublish": "npm run build"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/jayrbolton/vvvview.git"
-  },
-  "keywords": [
-    "view",
-    "virtual-dom",
-    "frp",
-    "vdom",
-    "template"
-  ],
+  "repository": { "type": "git", "url": "https://github.com/jayrbolton/vvvview.git" },
+  "keywords": [ "virtual-dom" ],
   "author": "jay r bolton <jayrbolton@gmail.com> (http://jayrbolton.com/)",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/jayrbolton/vvvview/issues"
-  },
+  "bugs": { "url": "https://github.com/jayrbolton/vvvview/issues" },
   "devDependencies": {
      "browserify": "11.0.1",
      "babelify": "6.3.0"
   },
   "dependencies": {
-    "fj-curry": "1.0.0",
-    "flyd": "0.1.14",
-    "deep-equal": "1.0.1",
     "virtual-dom": "2.1.1",
-    "clone": "1.0.2"
+    "fj-curry": "1.0.0"
   }
 }

@@ -25,38 +25,36 @@ create a new view by passing in:
 ```js
 import h from 'virtual-dom/h'
 import view from 'vvvview'
-import {Map} from 'immutable'
 
 const root = state => h('p', state.msg)
 
 // the VTree returned from `root` gets run using the default object and appended to document.body.
-let state = Map({msg: 'hallo welt'})
-let helloView = view(root, document.body, state)
+let helloView = view(root, document.body, {msg: 'hallo welt'})
 
 // Call your view function with a new state value and the DOM will get re-rendered automatically
-helloView(state.set('msg', 'bonjour le monde'))
+helloView({msg: 'bonjour le monde'})
 ```
 
 That's all there is to it! 
 
 ## pairings & patterns
 
-### functional reactive programming
+### functional reactive programming and immutability
 
-A counter example using [flyd](https://github.com/paldepind/flyd)
+A counter example using [flyd](https://github.com/paldepind/flyd) and [immutable-js](https://facebook.github.io/immutable-js/)
 
 ```js
 import h from 'virtual-dom/h'
 import view from 'vvvview'
 import {Map} from 'immutable'
+import flyd from 'flyd'
 
 let clickStream = flyd.stream()
 let count = flyd.scan(n => n + 1, 0, clickStream)
 
 const root = state => h('a', {onclick: clickStream}, state.count || 'click me!')
 
-let state = Map({count: 0})
-let counter = view(root, root, state)
+let counter = view(root, document.body, Map({count: 0}))
 
 // Scan the count stream with the state to create a stream of states
 let stateStream = flyd.scan((state, count) => state.set('count', count), state, count)
@@ -64,5 +62,5 @@ let stateStream = flyd.scan((state, count) => state.set('count', count), state, 
 flyd.map(counter, stateStream)
 ```
 
-With immutable, you can also use vdom-thunk without configuration
+With immutable, you can also make your views lightning fast by using [vdom-thunk](https://github.com/Raynos/vdom-thunk) without any configuration.
 

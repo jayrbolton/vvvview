@@ -10,7 +10,7 @@ var view = curryN(3, function(rootFn, parentNode, state) {
  return rerender(view)
 })
 
-vas rerender = curryN(2, function(view, newState) {
+var rerender = curryN(2, function(view, newState) {
  let newTree = view.root(newState)
  let patches = diff(view.tree, newTree)
  view.rootNode = patch(view.rootNode, patches)

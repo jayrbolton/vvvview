@@ -1,5 +1,5 @@
 var createElement = require('virtual-dom/create-element')
-var patch = require('virtual-dom/pach')
+var patch = require('virtual-dom/patch')
 var diff = require('virtual-dom/diff')
 var curryN = require('fj-curry').curryN
 

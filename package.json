@@ -2,13 +2,8 @@
   "name": "vvvview",
   "version": "0.3.0",
   "description": "A very light front-end view lib for combining usage of FRP with flyd and virtual-dom",
-  "main": "src/index.js",
-  "scripts": {
-    "test": "",
-    "watch": "watchify ./index.es6.js -t babelify -v -o ./index.js",
-    "build": "babel lib --out-dir src",
-    "prepublish": "npm run build"
-  },
+  "main": "index.js",
+  "scripts": {},
   "repository": { "type": "git", "url": "https://github.com/jayrbolton/vvvview.git" },
   "keywords": [ "virtual-dom" ],
   "author": "jay r bolton <jayrbolton@gmail.com> (http://jayrbolton.com/)",

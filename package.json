@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "test": "",
+    "watch": "watchify ./index.es6.js -t babelify -v -o ./index.js",
     "build": "babel lib --out-dir src",
     "prepublish": "npm run build"
   },

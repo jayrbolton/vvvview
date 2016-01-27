@@ -16,7 +16,7 @@ const rerender = curryN(2, (view, newState) => {
  let patches = diff(view.tree, newTree)
  view.rootNode = patch(view.rootNode, patches)
  view.tree = newTree
- return newState
+ return newTree
 })
 
 module.exports = view

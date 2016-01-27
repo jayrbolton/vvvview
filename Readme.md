@@ -1,8 +1,6 @@
 # vvvview
 
-A micro-module for streamlining patching of [virtual-dom](https://github.com/Matt-Esch/virtual-dom). Some suggested module pairings design patterns are below.
-
-On npm as `vvvview`
+A micro-module for streamlining patching of [virtual-dom](https://github.com/Matt-Esch/virtual-dom). On npm as `vvvview`
 
 ### view(rootFunction, parentNode, initialState)
 

@@ -1,5 +1,3 @@
-This is no longer supported. See here instead: https://github.com/jayrbolton/functional-frontend-architecture
-
 # vvvview
 
 A micro-module for streamlining usage of [virtual-dom](https://github.com/Matt-Esch/virtual-dom). Some suggested module pairings design patterns are below.
